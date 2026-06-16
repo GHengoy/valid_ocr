@@ -10,6 +10,7 @@
     "delete_password": "0000",
     "backup_interval_hours": 24,
     "backup_keep": 14,
+    "bad_case_keep": 300,
     "roi": {
         "x1": 240,
         "x2": 580,

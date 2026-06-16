@@ -342,6 +342,65 @@ def img_ocr(maked_img, verbose=True):
     return parsed
 
 
+# ─── 불량/오인식 케이스 수집 (나중에 OCR 튜닝용) ───
+BAD_CASES_DIR = os.path.join(BASE_DIR, "bad_cases")
+
+def _save_bad_case(frames, expected_date, reason, machine, num, extra=None):
+    """검증에서 인식이 어긋난 프레임을 통째로 저장해 둔다.
+    이미지(프레임 전체)+메타(기대값·사유·프레임별 인식결과)를 남겨,
+    나중에 'tools/review_bad_cases.py' 로 다시 돌려보며 튜닝할 수 있게 한다.
+
+    reason: hogi_fail(호기 못읽음) | hogi_mismatch(선택≠인식, 명확한 오인식)
+            date_fail(날짜 못읽음) | date_mismatch(날짜 다름; 오인식/진짜불량 혼재)
+    """
+    try:
+        os.makedirs(BAD_CASES_DIR, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        case_dir = os.path.join(BAD_CASES_DIR, f"{ts}_{reason}_m{machine}n{num}")
+        os.makedirs(case_dir, exist_ok=True)
+
+        per_frame = []
+        for i, (m, p) in enumerate(frames):
+            fname = f"f{i+1}.png"
+            try:
+                cv2.imwrite(os.path.join(case_dir, fname), m)
+            except Exception:
+                fname = None
+            y, mo, d, fac, jo = p
+            per_frame.append({
+                "frame": i + 1, "image": fname,
+                "date": f"{y}-{mo}-{d}" if y else "",
+                "hogi": fac or "", "jo": jo or "",
+            })
+
+        meta = {
+            "timestamp": ts,
+            "reason": reason,
+            "machine": machine,
+            "machine_name": "포장기" if machine == 0 else "멀티포장기",
+            "num": num,
+            "expected_date": expected_date,
+            "selected_jo": state.a_b,
+            "frames": per_frame,
+        }
+        if extra:
+            meta.update(extra)
+        with open(os.path.join(case_dir, "meta.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
+
+        # 보존: 최신 N개만 유지 (오래된 케이스 폴더 삭제)
+        keep = int(config.get("bad_case_keep", 300))
+        cases = sorted(
+            (os.path.join(BAD_CASES_DIR, n) for n in os.listdir(BAD_CASES_DIR)),
+            key=os.path.getmtime)
+        for old in cases[:-keep] if keep > 0 else []:
+            shutil.rmtree(old, ignore_errors=True)
+
+        print(f"        🗂  불량 케이스 저장: bad_cases/{os.path.basename(case_dir)}")
+    except Exception as e:
+        print("불량 케이스 저장 오류:", str(e))
+
+
 # ─── 검증 로직 ───
 def valid_img(num, point=0):
     """일부인 검증 — 여러 프레임을 읽어 호기·날짜를 '다수결'로 결정한다.
@@ -390,6 +449,7 @@ def valid_img(num, point=0):
         # 자동 모드: 다수결 호기로 셀 결정. 못 읽으면 기록하지 않음(엉뚱한 호기 방지)
         if not factory:
             print(f"[검증] ❌ 호기 인식 실패 → 기록 안 함 | {frames_dump}")
+            _save_bad_case(frames, expected_date, "hogi_fail", state.machine, num)
             return {"success": False,
                     "error": "호기를 인식하지 못했습니다. 일부인을 맞추고 다시 시도하세요.",
                     "ocr_text": expected_date}
@@ -421,6 +481,8 @@ def valid_img(num, point=0):
     recognized_hogi = int(factory) if (factory and factory.isdigit()) else None
     if (not auto) and recognized_hogi is not None and recognized_hogi != stamp_hogi:
         print(f"[검증] ❌ 호기 불일치: 선택 {stamp_hogi}호기 / 인식 {recognized_hogi}호기 → 기록 안 함 | {frames_dump}")
+        _save_bad_case(frames, expected_date, "hogi_mismatch", state.machine, actual_num,
+                       extra={"selected_hogi": stamp_hogi, "recognized_hogi": recognized_hogi})
         return {
             "success": True, "result": "NG", "recorded": False,
             "num": actual_num,
@@ -440,6 +502,12 @@ def valid_img(num, point=0):
         state.ok_list[state.machine][actual_num - 1] = 2
         state.b_c_list[state.machine][actual_num - 1] = "red"
         result_status = "NG"
+        # 날짜 NG 수집: 못 읽음(date_fail)은 명확한 오인식,
+        # 다름(date_mismatch)은 오인식/진짜불량 혼재 → 사유로 구분해 둠
+        _save_bad_case(frames, expected_date,
+                       "date_fail" if not majority_date else "date_mismatch",
+                       state.machine, actual_num,
+                       extra={"recognized_date": ocr_date_str})
 
     machine_name = "포장기" if state.machine == 0 else "멀티포장기"
     mark = "✅" if result_status == "OK" else "❌"

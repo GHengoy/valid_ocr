@@ -1,5 +1,6 @@
 # Captured data / runtime DB
 date/
+bad_cases/
 sessions.db
 sessions.db-wal
 sessions.db-shm
