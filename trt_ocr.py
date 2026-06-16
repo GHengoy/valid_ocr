@@ -279,47 +279,81 @@ class TRTPaddleOCR:
         except Exception:
             return crop
 
-    def _find_two_lines(self, crop):
-        """스탬프는 ROI 최상단 텍스트(날짜줄) + 바로 아래(호기줄) 2줄로 고정.
-        '맨 위 텍스트 행'을 기준으로 1줄 높이씩 아래로 2줄을 잘라 (date, factory) 밴드 반환.
-        - 스탬프가 ROI 안에서 위아래로 떠다녀도 '최상단 기준'이라 안정적.
-        - 아래쪽 영양정보/패키지 모서리(어두움)는 무시됨(배경 변화에 강함)."""
+    def _candidate_lines(self, crop):
+        """텍스트 줄 후보들의 (y1, y2) 리스트(위→아래)와 1줄 높이를 반환.
+        긴 밴드(두 줄이 붙은 경우)는 1줄 높이로 쪼갠다."""
         gray = self._clahe.apply(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY))
         _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
         h = bw.shape[0]
         rs = bw.sum(axis=1).astype(np.float32)
         if rs.max() <= 0:
-            return None
+            return [], int(h * 0.27)
         rs = np.convolve(rs, np.ones(3) / 3, "same")
-        rows = np.where(rs > rs.max() * 0.15)[0]   # 텍스트가 있는 행
-        if len(rows) == 0:
-            return None
-        top = rows[0] - int(h * 0.03)              # 맨 위 텍스트(날짜줄) 시작, 약간 여유
-        line_h = int(h * 0.27)                      # 1줄 높이(분수)
-        step = int(h * 0.24)                        # 다음 줄까지 간격
-        d = (max(0, top), min(h, top + line_h))
-        f = (max(0, top + step), min(h, top + step + line_h))
-        return d, f
+        mask = rs > rs.max() * 0.15
+        line_h = int(h * 0.27)
+        bands, s = [], None
+        for i, v in enumerate(mask):
+            if v and s is None:
+                s = i
+            elif not v and s is not None:
+                if i - s >= h * 0.04:
+                    bands.append((s, i))
+                s = None
+        if s is not None and h - s >= h * 0.04:
+            bands.append((s, h))
+        lines = []
+        for (a, b) in bands:
+            bh = b - a
+            if bh <= line_h * 1.5:
+                lines.append((a, b))
+            else:                                   # 긴 밴드 → 1줄 높이씩 분할
+                n = max(1, int(round(bh / line_h)))
+                for k in range(n):
+                    lines.append((a + bh * k // n, a + bh * (k + 1) // n))
+        return lines, line_h
 
     def ocr_stamp(self, bgr_img):
-        """일부인 전용: 기울기 보정 → 2줄 자동 검출 → 각 줄 rec.
-        반환: [날짜줄 텍스트, 호기줄 텍스트] (검출 실패 시 전체를 한 줄로)."""
+        """일부인 전용: 기울기 보정 → 줄 후보 검출 → '연도(202x)가 있는 줄'을 날짜줄로,
+        바로 아래 줄을 호기줄로 인식. (상단 바코드/노이즈 줄은 연도가 없어 건너뜀)
+        반환: [날짜줄 텍스트, 호기줄 텍스트]."""
         if not self.available or bgr_img is None or bgr_img.size == 0:
             return []
         with self._lock:
             self.cuda_ctx.push()
             try:
                 img = self._deskew(bgr_img)
-                lines = self._find_two_lines(img)
-                if lines is None:
+                h = img.shape[0]
+                cands, line_h = self._candidate_lines(img)
+                pad = int(h * 0.03)
+
+                def rec(band):
+                    y1 = max(0, band[0] - pad)
+                    y2 = min(h, band[1] + pad)
+                    return self._recognize(img[y1:y2]) if y2 > y1 else ""
+
+                if not cands:
                     t = self._recognize(img)
                     return [t] if t else []
+
+                # 날짜줄: 위에서부터 최대 4줄 인식해 '202x' 있는 첫 줄 (바코드 등 건너뜀)
+                date_i, date_text = -1, ""
+                for i in range(min(4, len(cands))):
+                    t = rec(cands[i])
+                    if re.search(r"202\d", t):
+                        date_i, date_text = i, t
+                        break
+
+                if date_i < 0:
+                    # 연도 못 찾음 → 최상단 줄을 날짜로 가정(폴백)
+                    date_i, date_text = 0, rec(cands[0])
+
                 out = []
-                for (y1, y2) in lines:
-                    if y2 > y1:
-                        t = self._recognize(img[y1:y2])
-                        if t:
-                            out.append(t)
+                if date_text:
+                    out.append(date_text)
+                if date_i + 1 < len(cands):          # 호기줄 = 날짜 바로 아래
+                    ft = rec(cands[date_i + 1])
+                    if ft:
+                        out.append(ft)
                 return out
             except Exception as e:
                 print("TRT OCR(stamp) 오류:", e)
