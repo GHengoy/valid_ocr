@@ -300,7 +300,7 @@ def _tesseract_results(maked_img):
     return results
 
 
-def img_ocr(maked_img):
+def img_ocr(maked_img, verbose=True):
     """일부인 영역 OCR → (년, 월, 일, 호기번호, 조). TRT 엔진 우선, 없으면 tesseract."""
     if maked_img is None:
         return "", "", "", "", ""
@@ -335,71 +335,102 @@ def img_ocr(maked_img):
     y, mo, d, fac, jo = parsed
 
     # ─── 인식 결과를 터미널에 출력 ───
-    if isinstance(raw_log, dict):
-        raw_str = "  ".join(f"[{k}] '{v}'" for k, v in raw_log.items())
-    else:
-        raw_str = "  ".join(f"'{t}'" for t in (raw_log or [])) or "(없음)"
-    print(f"[OCR/{engine_used}] 인식원본: {raw_str}")
-    print(f"        → 날짜={y}-{mo}-{d}  호기={fac or '?'}  조={jo or '?'}")
+    if verbose:
+        if isinstance(raw_log, dict):
+            raw_str = "  ".join(f"[{k}] '{v}'" for k, v in raw_log.items())
+        else:
+            raw_str = "  ".join(f"'{t}'" for t in (raw_log or [])) or "(없음)"
+        print(f"[OCR/{engine_used}] 인식원본: {raw_str}")
+        print(f"        → 날짜={y}-{mo}-{d}  호기={fac or '?'}  조={jo or '?'}")
 
     return parsed
 
 
 # ─── 검증 로직 ───
 def valid_img(num, point=0):
-    """일부인 검증 수행"""
-    maked_img = None
-    with state.frame_lock:
-        if state.latest_maked is not None:
-            maked_img = state.latest_maked.copy()
+    """일부인 검증 — 여러 프레임을 읽어 호기·날짜를 '다수결'로 결정한다.
+    단발 촬영은 흔들림/흐림 한 프레임 때문에 호기 오기록·인식실패가 생기므로,
+    수 프레임을 모아 합의된 값만 채택한다."""
+    expected_date = f"{state.ex_date_year}-{state.ex_date_month}-{state.ex_date_day}"
+    auto = (state.machine == 0 and num == 100)
+    need_point_select = False
 
-    if maked_img is None:
+    # ── 여러 프레임 OCR ──
+    frames = []  # [(maked_img, (y, mo, d, factory, jo))]
+    for i in range(6):
+        m = None
+        with state.frame_lock:
+            if state.latest_maked is not None:
+                m = state.latest_maked.copy()
+        if m is not None:
+            frames.append((m, img_ocr(m, verbose=False)))
+            # 조기 종료: '설정 날짜 + 동일 호기' 프레임 2개면 확신
+            good = [p for (_m, p) in frames
+                    if p[0] and f"{p[0]}-{p[1]}-{p[2]}" == expected_date and p[3].isdigit()]
+            if len(good) >= 2 and len({p[3] for p in good}) == 1:
+                break
+        if i < 5:
+            time.sleep(0.1)   # 다음 프레임(약 10fps) 대기
+
+    if not frames:
         return {"success": False, "error": "카메라 이미지 없음"}
 
-    ocr_year, ocr_month, ocr_day, factory, ocr_jo = img_ocr(maked_img)
+    valid = [(m, p) for (m, p) in frames if p[0]]   # 날짜가 읽힌 프레임만
 
-    # 포장기 모드: OCR에서 호기 번호(1~12) 자동 결정
-    actual_num = num
-    need_point_select = False  # 호기를 OCR이 직접 읽으므로 11/12 수동 구분 불필요
-    if state.machine == 0 and num == 100:
-        # 자동 모드 (하단 버튼): 호기 코드 "2<조><호기>" 에서 호기(1~12) 추출
-        if not factory or not factory.isdigit() or not (1 <= int(factory) <= 12):
-            return {
-                "success": False,
-                "error": "호기 번호를 인식할 수 없습니다",
-                "ocr_text": f"{ocr_year}-{ocr_month}-{ocr_day}",
-                "factory_raw": factory
-            }
+    # ── 호기 다수결 ──
+    hogi_votes = {}
+    for (_m, p) in valid:
+        fac = p[3]
+        if fac.isdigit() and 1 <= int(fac) <= 12:
+            hogi_votes[fac] = hogi_votes.get(fac, 0) + 1
+    factory = max(hogi_votes, key=hogi_votes.get) if hogi_votes else ""
+
+    if auto:
+        # 자동 모드: 다수결 호기로 셀 결정. 못 읽으면 기록하지 않음(엉뚱한 호기 방지)
+        if not factory:
+            return {"success": False,
+                    "error": "호기를 인식하지 못했습니다. 일부인을 맞추고 다시 시도하세요.",
+                    "ocr_text": expected_date}
         actual_num = int(factory)
+    else:
+        actual_num = num
 
-    # ── 호기 검증 ──
-    # 인식된 호기가 선택/대상 호기와 다르면(= 다른 호기 스탬프를 잘못 스캔) 기록하지 않고 NG.
-    # 호기를 못 읽은 경우(예: 멀티포장기 잘린 스탬프)는 수동 선택을 신뢰하여 통과.
-    # 11.호기(13)/12.호기(14)는 스탬프상 11/12로 찍히므로 매핑해서 비교.
+    # ── 날짜 다수결 ──
+    date_votes = {}
+    for (_m, p) in valid:
+        date_votes[f"{p[0]}-{p[1]}-{p[2]}"] = date_votes.get(f"{p[0]}-{p[1]}-{p[2]}", 0) + 1
+    majority_date = max(date_votes, key=date_votes.get) if date_votes else ""
+
+    # 대표 프레임(이미지 저장용): 다수결 날짜를 가진 프레임 우선
+    def _score(mp):
+        _m, p = mp
+        rec = f"{p[0]}-{p[1]}-{p[2]}" if p[0] else ""
+        return (2 if rec and rec == majority_date else 0) + (1 if p[0] else 0)
+    maked_img, rep = max(frames, key=_score)
+    ocr_jo = rep[4]
+    if majority_date:
+        ocr_year, ocr_month, ocr_day = majority_date.split("-")
+    else:
+        ocr_year = ocr_month = ocr_day = ""
+    ocr_date_str = majority_date if majority_date else "인식실패"
+
+    # ── 호기 검증 (수동 모드): 인식 호기(다수결) ≠ 선택 호기 → 기록 안 함 ──
     stamp_hogi = {13: 11, 14: 12}.get(actual_num, actual_num)
     recognized_hogi = int(factory) if (factory and factory.isdigit()) else None
-    if recognized_hogi is not None and recognized_hogi != stamp_hogi:
-        ocr_date_str = f"{ocr_year}-{ocr_month}-{ocr_day}" if ocr_year else "인식실패"
-        expected_date = f"{state.ex_date_year}-{state.ex_date_month}-{state.ex_date_day}"
+    if (not auto) and recognized_hogi is not None and recognized_hogi != stamp_hogi:
         print(f"[검증] 호기 불일치: 선택 {stamp_hogi}호기 / 인식 {recognized_hogi}호기 → 기록 안 함")
         return {
-            "success": True,
-            "result": "NG",
-            "recorded": False,           # 기록하지 않음(셀 안 채움)
+            "success": True, "result": "NG", "recorded": False,
             "num": actual_num,
             "reason": f"호기 불일치 — 선택 {stamp_hogi}호기 / 인식 {recognized_hogi}호기",
-            "ocr_date": ocr_date_str,
-            "expected_date": expected_date,
-            "factory": factory,
-            "ocr_jo": ocr_jo,
+            "ocr_date": ocr_date_str, "expected_date": expected_date,
+            "factory": factory, "ocr_jo": ocr_jo,
             "ok_count": state.ok_list[state.machine].count(1),
             "ng_count": state.ok_list[state.machine].count(2),
         }
 
-    # 날짜 검증
-    if (state.ex_date_year == ocr_year and
-        state.ex_date_month == ocr_month and
-        state.ex_date_day == ocr_day and ocr_year != ""):
+    # ── 날짜 검증 ──
+    if majority_date and majority_date == expected_date:
         state.ok_list[state.machine][actual_num - 1] = 1
         state.b_c_list[state.machine][actual_num - 1] = "green"
         result_status = "OK"
@@ -408,16 +439,14 @@ def valid_img(num, point=0):
         state.b_c_list[state.machine][actual_num - 1] = "red"
         result_status = "NG"
 
-    # 결과 출력
-    ocr_date_str = f"{ocr_year}-{ocr_month}-{ocr_day}" if ocr_year else "인식실패"
-    expected_date = f"{state.ex_date_year}-{state.ex_date_month}-{state.ex_date_day}"
     machine_name = "포장기" if state.machine == 0 else "멀티포장기"
-    print(f"[검증] {machine_name} {actual_num}호기 | OCR: {ocr_date_str} | 설정: {state.ex_date} | 결과: {result_status}")
+    print(f"[검증] {machine_name} {actual_num}호기 | OCR(다수결,{len(frames)}프레임): "
+          f"{ocr_date_str} | 설정: {state.ex_date} | 결과: {result_status}")
 
     # NG 사유
     if result_status == "OK":
         reason = ""
-    elif not ocr_year:
+    elif not majority_date:
         reason = "날짜를 인식하지 못했습니다"
     else:
         reason = "소비기한이 다릅니다"
