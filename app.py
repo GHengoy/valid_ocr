@@ -377,6 +377,11 @@ def valid_img(num, point=0):
 
     valid = [(m, p) for (m, p) in frames if p[0]]   # 날짜가 읽힌 프레임만
 
+    # 프레임별 인식 내용 (실패 시 터미널 디버그 출력용)
+    frames_dump = " | ".join(
+        f"#{i+1} {(p[0]+'-'+p[1]+'-'+p[2]) if p[0] else '날짜?'} 호기{p[3] or '?'} 조{p[4] or '?'}"
+        for i, (_m, p) in enumerate(frames))
+
     # ── 호기 다수결 ──
     hogi_votes = {}
     for (_m, p) in valid:
@@ -388,6 +393,7 @@ def valid_img(num, point=0):
     if auto:
         # 자동 모드: 다수결 호기로 셀 결정. 못 읽으면 기록하지 않음(엉뚱한 호기 방지)
         if not factory:
+            print(f"[검증] ❌ 호기 인식 실패 → 기록 안 함 | {frames_dump}")
             return {"success": False,
                     "error": "호기를 인식하지 못했습니다. 일부인을 맞추고 다시 시도하세요.",
                     "ocr_text": expected_date}
@@ -418,7 +424,7 @@ def valid_img(num, point=0):
     stamp_hogi = {13: 11, 14: 12}.get(actual_num, actual_num)
     recognized_hogi = int(factory) if (factory and factory.isdigit()) else None
     if (not auto) and recognized_hogi is not None and recognized_hogi != stamp_hogi:
-        print(f"[검증] 호기 불일치: 선택 {stamp_hogi}호기 / 인식 {recognized_hogi}호기 → 기록 안 함")
+        print(f"[검증] ❌ 호기 불일치: 선택 {stamp_hogi}호기 / 인식 {recognized_hogi}호기 → 기록 안 함 | {frames_dump}")
         return {
             "success": True, "result": "NG", "recorded": False,
             "num": actual_num,
@@ -440,8 +446,11 @@ def valid_img(num, point=0):
         result_status = "NG"
 
     machine_name = "포장기" if state.machine == 0 else "멀티포장기"
-    print(f"[검증] {machine_name} {actual_num}호기 | OCR(다수결,{len(frames)}프레임): "
+    mark = "✅" if result_status == "OK" else "❌"
+    print(f"[검증] {mark} {machine_name} {actual_num}호기 | OCR(다수결,{len(frames)}프레임): "
           f"{ocr_date_str} | 설정: {state.ex_date} | 결과: {result_status}")
+    if result_status == "NG":
+        print(f"        프레임별: {frames_dump}")
 
     # NG 사유
     if result_status == "OK":
