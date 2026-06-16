@@ -280,8 +280,10 @@ class TRTPaddleOCR:
             return crop
 
     def _find_two_lines(self, crop):
-        """수평 투영으로 스탬프 2줄(날짜/호기)의 (y1,y2) 밴드를 찾는다.
-        위에서부터 가까운 밴드 최대 2개를 스탬프로 보고, 멀리 떨어진 영양정보 등은 제외."""
+        """스탬프는 ROI 최상단 텍스트(날짜줄) + 바로 아래(호기줄) 2줄로 고정.
+        '맨 위 텍스트 행'을 기준으로 1줄 높이씩 아래로 2줄을 잘라 (date, factory) 밴드 반환.
+        - 스탬프가 ROI 안에서 위아래로 떠다녀도 '최상단 기준'이라 안정적.
+        - 아래쪽 영양정보/패키지 모서리(어두움)는 무시됨(배경 변화에 강함)."""
         gray = self._clahe.apply(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY))
         _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
         h = bw.shape[0]
@@ -289,40 +291,15 @@ class TRTPaddleOCR:
         if rs.max() <= 0:
             return None
         rs = np.convolve(rs, np.ones(3) / 3, "same")
-        mask = rs > rs.max() * 0.15
-        bands, s = [], None
-        for i, v in enumerate(mask):
-            if v and s is None:
-                s = i
-            elif not v and s is not None:
-                if i - s >= h * 0.04:
-                    bands.append([s, i])
-                s = None
-        if s is not None and h - s >= h * 0.04:
-            bands.append([s, h])
-        if not bands:
+        rows = np.where(rs > rs.max() * 0.15)[0]   # 텍스트가 있는 행
+        if len(rows) == 0:
             return None
-        b0 = bands[0]
-        b0h = b0[1] - b0[0]
-        if b0h >= h * 0.26:
-            # 두 줄이 한 밴드로 붙음(똑바로 놓여 줄 간격 좁을 때) → 내부 골(valley)에서 분할
-            top, bot = b0
-            lo = top + int(b0h * 0.35)
-            hi = top + int(b0h * 0.65)
-            split = (lo + int(np.argmin(rs[lo:hi]))) if hi > lo else (top + bot) // 2
-            d, f = [top, split], [split, bot]
-        else:
-            # 날짜줄(첫 밴드) + 가까운 호기줄(둘째 밴드). 멀리 떨어진 영양정보 등은 제외
-            d, f = list(b0), None
-            for b in bands[1:]:
-                if b[0] - b0[1] < h * 0.12:
-                    f = list(b)
-                    break
-            if f is None:
-                f = list(b0)   # 호기줄을 못 찾으면 날짜줄만(폴백)
-        pad = int(h * 0.03)
-        return ((max(0, d[0] - pad), min(h, d[1] + pad)),
-                (max(0, f[0] - pad), min(h, f[1] + pad)))
+        top = rows[0] - int(h * 0.03)              # 맨 위 텍스트(날짜줄) 시작, 약간 여유
+        line_h = int(h * 0.27)                      # 1줄 높이(분수)
+        step = int(h * 0.24)                        # 다음 줄까지 간격
+        d = (max(0, top), min(h, top + line_h))
+        f = (max(0, top + step), min(h, top + step + line_h))
+        return d, f
 
     def ocr_stamp(self, bgr_img):
         """일부인 전용: 기울기 보정 → 2줄 자동 검출 → 각 줄 rec.
