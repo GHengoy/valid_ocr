@@ -148,7 +148,7 @@ class _TRTEngine:
 class TRTPaddleOCR:
     """PP-OCRv5 TensorRT OCR. ocr(bgr_img) → 인식된 텍스트 줄 리스트."""
 
-    def __init__(self, model_dir, rec_h=48, rec_max_w=640, det_limit=960,
+    def __init__(self, model_dir, rec_h=48, rec_max_w=640, det_limit=640,
                  det_thresh=0.3, det_box_thresh=0.5):
         self.available = False
         self.reason = ""

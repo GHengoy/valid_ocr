@@ -144,10 +144,12 @@ if [ "$BUILD_DET" = "1" ]; then
   DET_ONNX="$DIR/korean_det.onnx"
   DET_IN="$(input_name "$DET_ONNX")"
   echo -e "\n  det 입력 텐서: ${CYAN}${DET_IN}${RESET}"
+  # max 640: 실제 ROI 크롭(~560×270)에 충분하며 Xavier NX GPU 메모리 한계 내에서 빌드됨
+  # (960 은 활성메모리 과다로 NvMap OOM → 빌드 실패)
   build "$DET_ONNX" "$DIR/korean_det.trt" \
     --minShapes=${DET_IN}:1x3x64x64 \
-    --optShapes=${DET_IN}:1x3x480x480 \
-    --maxShapes=${DET_IN}:1x3x960x960 || OK=0
+    --optShapes=${DET_IN}:1x3x416x416 \
+    --maxShapes=${DET_IN}:1x3x640x640 || OK=0
 fi
 
 # ── 5. 결과 ───────────────────────────────────────────────────
