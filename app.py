@@ -991,6 +991,11 @@ def open_browser(url):
                 "--noerrdialogs",
                 "--disable-infobars",
                 "--disable-session-crashed-bubble",
+                # Jetson + snap 크로미움은 HW GL(EGL/ANGLE) 초기화가 실패해
+                # 'failed to create drawable' 로 화면이 안 뜨는 경우가 있다.
+                # 이 UI 는 GPU 가속이 필요 없으므로 소프트웨어 렌더링으로 강제한다.
+                "--disable-gpu",
+                "--disable-gpu-compositing",
                 url,
             ])
             return
