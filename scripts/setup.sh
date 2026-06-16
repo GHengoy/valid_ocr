@@ -195,6 +195,24 @@ ResultActive=yes
 EOF
 echo "  -> 종료/재시작 암호 없이 가능하도록 polkit 설정 ($POLKIT_PKLA)"
 
+# jetson_clocks 부팅 자동 적용 (재부팅 시 클럭 고정이 풀리므로 systemd 서비스로 등록)
+if command -v jetson_clocks >/dev/null 2>&1; then
+    sudo tee /etc/systemd/system/jetson-clocks.service >/dev/null <<EOF
+[Unit]
+Description=Max out Jetson clocks at boot
+After=nvpmodel.service
+
+[Service]
+Type=oneshot
+ExecStart=$(command -v jetson_clocks)
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl enable --now jetson-clocks.service 2>/dev/null || true
+    echo "  -> jetson_clocks 부팅 자동 적용 등록 (jetson-clocks.service)"
+fi
+
 # ── 완료 ──────────────────────────────────────────────────────
 echo ""
 echo "=========================================="
