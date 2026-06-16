@@ -256,6 +256,94 @@ class TRTPaddleOCR:
             out = out[np.newaxis, ...]
         return self._ctc_decode(out)
 
+    # ── 기울기 보정 + 줄 자동 검출 (일부인 전용) ──────────────────
+    def _deskew(self, crop):
+        """스탬프 텍스트 기울기를 추정해 수평으로 보정 (기울어진 숫자 오인식 방지)."""
+        try:
+            gray = self._clahe.apply(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY))
+            _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+            h, w = bw.shape
+            ys, xs = np.where(bw[:int(h * 0.7)] > 0)   # 상단(스탬프) 위주
+            if len(xs) < 50:
+                return crop
+            ang = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))[2]
+            if ang < -45:
+                ang += 90
+            elif ang > 45:
+                ang -= 90
+            if abs(ang) < 1.5 or abs(ang) > 25:   # 거의 수평이거나 비정상 각도면 패스
+                return crop
+            M = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), ang, 1.0)
+            return cv2.warpAffine(crop, M, (w, h), flags=cv2.INTER_LINEAR,
+                                  borderValue=(255, 255, 255))
+        except Exception:
+            return crop
+
+    def _find_two_lines(self, crop):
+        """수평 투영으로 스탬프 2줄(날짜/호기)의 (y1,y2) 밴드를 찾는다.
+        위에서부터 가까운 밴드 최대 2개를 스탬프로 보고, 멀리 떨어진 영양정보 등은 제외."""
+        gray = self._clahe.apply(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY))
+        _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+        h = bw.shape[0]
+        rs = bw.sum(axis=1).astype(np.float32)
+        if rs.max() <= 0:
+            return None
+        rs = np.convolve(rs, np.ones(3) / 3, "same")
+        mask = rs > rs.max() * 0.15
+        bands, s = [], None
+        for i, v in enumerate(mask):
+            if v and s is None:
+                s = i
+            elif not v and s is not None:
+                if i - s >= h * 0.04:
+                    bands.append([s, i])
+                s = None
+        if s is not None and h - s >= h * 0.04:
+            bands.append([s, h])
+        if not bands:
+            return None
+        stamp = [bands[0]]
+        for b in bands[1:]:
+            if len(stamp) < 2 and b[0] - stamp[-1][1] < h * 0.15:
+                stamp.append(b)
+            else:
+                break
+        if len(stamp) >= 2:
+            d, f = stamp[0], stamp[1]
+        else:
+            a, b = stamp[0]
+            mid = (a + b) // 2
+            d, f = [a, mid], [mid, b]
+        pad = int(h * 0.03)
+        return ((max(0, d[0] - pad), min(h, d[1] + pad)),
+                (max(0, f[0] - pad), min(h, f[1] + pad)))
+
+    def ocr_stamp(self, bgr_img):
+        """일부인 전용: 기울기 보정 → 2줄 자동 검출 → 각 줄 rec.
+        반환: [날짜줄 텍스트, 호기줄 텍스트] (검출 실패 시 전체를 한 줄로)."""
+        if not self.available or bgr_img is None or bgr_img.size == 0:
+            return []
+        with self._lock:
+            self.cuda_ctx.push()
+            try:
+                img = self._deskew(bgr_img)
+                lines = self._find_two_lines(img)
+                if lines is None:
+                    t = self._recognize(img)
+                    return [t] if t else []
+                out = []
+                for (y1, y2) in lines:
+                    if y2 > y1:
+                        t = self._recognize(img[y1:y2])
+                        if t:
+                            out.append(t)
+                return out
+            except Exception as e:
+                print("TRT OCR(stamp) 오류:", e)
+                return []
+            finally:
+                self.cuda_ctx.pop()
+
     # ── det (DB) ────────────────────────────────────────────────
     def _det_preprocess(self, img):
         h, w = img.shape[:2]

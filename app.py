@@ -306,22 +306,14 @@ def img_ocr(maked_img, verbose=True):
         return "", "", "", "", ""
 
     results = []
-    raw_log = None  # 터미널 출력용 (영역별 원본 텍스트)
+    raw_log = None  # 터미널 출력용
     engine_used = "tesseract"
     if OCR_ENGINE is not None and OCR_ENGINE.available:
         try:
-            sub = get_cached_sub_roi()
-            if sub:
-                # 고정 레이아웃: 날짜 줄 / 호기 줄을 각각 rec 인식 (det 불필요)
-                regions = {name: (b["x1"], b["y1"], b["x2"], b["y2"])
-                           for name, b in sub.items()}
-                texts = OCR_ENGINE.ocr_regions(maked_img, regions)
-                raw_log = texts
-                results = [t for t in texts.values() if t]
-            else:
-                # sub_roi 미설정: ROI 전체를 det(있으면) 또는 한 줄로 인식
-                results = OCR_ENGINE.ocr(maked_img)
-                raw_log = results
+            # 기울기 보정 + 2줄(날짜/호기) 자동 검출 → 각 줄 인식
+            # (스탬프 위치·기울기가 매번 달라도 동적으로 찾아 안정적)
+            results = OCR_ENGINE.ocr_stamp(maked_img)
+            raw_log = results
             engine_used = "TRT"
         except Exception as e:
             print("TRT OCR 오류 → tesseract 폴백:", str(e))
