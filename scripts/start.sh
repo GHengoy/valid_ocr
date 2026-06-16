@@ -24,7 +24,7 @@ else
     PY="python3"
 fi
 
-# pip --user 로 설치한 패키지(pytesseract, pycuda 등) 경로 보장
+# pip --user 로 설치한 패키지(pycuda 등) 경로 보장
 export PATH="$HOME/.local/bin:/usr/local/cuda/bin:$PATH"
 
 echo "일부인 검증 시스템 시작 ($PY)"

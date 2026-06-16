@@ -28,9 +28,9 @@ bash scripts/start.sh             # 실행
 
 `bash scripts/setup.sh` 가 한 번에 처리합니다:
 
-1. **시스템 패키지(apt)** — flask, pillow, opencv, cups, `python3-libnvinfer`(TensorRT), tesseract(+kor) 등
+1. **시스템 패키지(apt)** — flask, pillow, opencv, cups, `python3-libnvinfer`(TensorRT) 등
 2. **pip(--user)** — 버전 고정 필수:
-   - `numpy==1.23.5` · `markupsafe==2.0.1` · `pycuda==2022.2.2` · `pytesseract`
+   - `numpy==1.23.5` · `markupsafe==2.0.1` · `pycuda==2022.2.2`
 3. **Basler pypylon** — Pylon SDK 확인/설치 안내
 4. **TensorRT OCR 엔진** — `onnx/build_trt.sh` 로 rec 엔진 빌드(이 기기 전용, 수십 분)
 5. **데이터 폴더**(`date/`)
@@ -50,7 +50,7 @@ bash scripts/start.sh             # 실행
 bash onnx/build_trt.sh           # rec 만 (권장)
 bash onnx/build_trt.sh --swap    # 빌드 중 OOM 시 임시 디스크 swap 추가
 ```
-엔진이 없으면 OCR은 자동으로 **tesseract 로 폴백**합니다(정확도 낮음).
+엔진(`onnx/korean_rec.trt`)이 없으면 OCR이 동작하지 않아 스캔이 모두 '인식 실패'로 처리됩니다.
 
 ---
 

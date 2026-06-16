@@ -6,7 +6,7 @@ trt_ocr.py — PaddleOCR(PP-OCRv5) TensorRT 추론 래퍼 (Jetson Xavier NX / TR
 - onnx/build_trt.sh 로 빌드한 korean_rec.trt (+선택 korean_det.trt) 엔진을 로드한다.
 - det 엔진이 있으면  det(텍스트 영역 검출) → 각 줄 crop → rec(인식)  전체 파이프라인,
   없으면 입력 이미지를 한 줄로 보고 rec 만 수행한다.
-- tensorrt / pycuda 가 없으면 available=False 가 되어 app.py 가 tesseract 로 폴백한다.
+- tensorrt / pycuda 가 없으면 available=False 가 되어 OCR 이 비활성된다(인식 실패 처리).
 
 엔진/사전 위치 (기본): <project>/onnx/{korean_rec.trt, korean_det.trt, korean_dict.txt}
 """

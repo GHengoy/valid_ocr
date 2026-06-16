@@ -233,13 +233,14 @@ def generate_mjpeg():
 
 
 # ─── OCR ───
-# TensorRT(PaddleOCR PP-OCRv5) 엔진을 우선 사용하고, 없으면 tesseract 로 폴백.
+# TensorRT(PaddleOCR PP-OCRv5) 엔진만 사용한다.
 # 엔진은 app 시작 시 init_ocr_engine() 에서 1회 초기화한다.
+# (엔진이 없거나 초기화 실패 시 OCR 은 동작하지 않고 '인식 실패'로 처리됨)
 OCR_ENGINE = None
 
 
 def init_ocr_engine():
-    """TensorRT OCR 엔진 초기화. 실패하면 None (tesseract 폴백)."""
+    """TensorRT OCR 엔진 초기화. 실패하면 None (OCR 비활성)."""
     global OCR_ENGINE
     try:
         from trt_ocr import TRTPaddleOCR
@@ -248,66 +249,21 @@ def init_ocr_engine():
         print("OCR 엔진(TensorRT):", engine.reason)
     except Exception as e:
         OCR_ENGINE = None
-        print("OCR 엔진 초기화 실패 → tesseract 폴백:", str(e))
+        print("OCR 엔진 초기화 실패 (OCR 비활성):", str(e))
 
 
 # 날짜/호기/조 파싱은 trt_ocr.parse_stamp_text 로 단일화 (verify_ocr.py 와 공용)
 from trt_ocr import parse_stamp_text as _parse_ocr_text  # noqa: E402
 
 
-def _tesseract_results(maked_img):
-    """tesseract 기반 OCR 텍스트 리스트 (TRT 미사용 시 폴백).
-    pytesseract 는 선택적 의존성(내부적으로 pandas 등을 끌어와 환경에 따라
-    import 가 실패할 수 있음). 여기서 지연 import 하여 실패해도 앱은 동작한다."""
-    try:
-        import pytesseract
-    except Exception as e:
-        print("pytesseract 사용 불가(폴백 생략):", str(e))
-        return []
-    results = []
-    try:
-        image = Image.fromarray(cv2.cvtColor(maked_img, cv2.COLOR_BGR2RGB))
-        img_gray = cv2.cvtColor(maked_img, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        img_enhanced = clahe.apply(img_gray)
-        img_thresh = cv2.adaptiveThreshold(
-            img_enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, 11, 2
-        )
-        kernel = np.ones((2, 2), np.uint8)
-        img_clean = cv2.morphologyEx(img_thresh, cv2.MORPH_CLOSE, kernel)
-
-        for img_input in [image, Image.fromarray(img_clean)]:
-            try:
-                text = pytesseract.image_to_string(
-                    img_input, lang='kor', config='--oem 1 --psm 6'
-                )
-                if text:
-                    results.append(text)
-            except Exception:
-                pass
-        try:
-            text_digits = pytesseract.image_to_string(
-                Image.fromarray(img_clean), lang='eng',
-                config='--oem 1 --psm 6 -c tessedit_char_whitelist=0123456789.'
-            )
-            if text_digits:
-                results.append(text_digits)
-        except Exception:
-            pass
-    except Exception as e:
-        print("tesseract OCR 오류:", str(e))
-    return results
-
-
 def img_ocr(maked_img, verbose=True):
-    """일부인 영역 OCR → (년, 월, 일, 호기번호, 조). TRT 엔진 우선, 없으면 tesseract."""
+    """일부인 영역 OCR → (년, 월, 일, 호기번호, 조). TensorRT(PaddleOCR) 전용."""
     if maked_img is None:
         return "", "", "", "", ""
 
     results = []
     raw_log = None  # 터미널 출력용
-    engine_used = "tesseract"
+    engine_used = "none"
     if OCR_ENGINE is not None and OCR_ENGINE.available:
         try:
             if OCR_ENGINE.det is not None:
@@ -320,12 +276,8 @@ def img_ocr(maked_img, verbose=True):
                 engine_used = "TRT"
             raw_log = results
         except Exception as e:
-            print("TRT OCR 오류 → tesseract 폴백:", str(e))
+            print("TRT OCR 오류:", str(e))
             results = []
-    if not results:
-        results = _tesseract_results(maked_img)
-        if raw_log is None:
-            raw_log = results
 
     parsed = _parse_ocr_text(results)
     y, mo, d, fac, jo = parsed
@@ -687,7 +639,13 @@ def api_set_shift():
         state.b_c_list = loaded["b_c_list"]
         state.sign_list = loaded["sign_list"]
     else:
-        # 신규 세션 생성
+        # 신규 세션 생성: 이전 세션의 인식정보(날짜/OK/NG)가 남지 않도록 초기화한 뒤 저장.
+        # (이걸 빼면 직전 세션의 date_list/ok_list 가 그대로 새 날짜 세션에 저장되어,
+        #  날짜를 바꿔도 인식정보가 그대로 보이는 문제가 생긴다)
+        state.ok_list = [[0] * 14 for _ in range(2)]
+        state.date_list = [[""] * 14 for _ in range(2)]
+        state.b_c_list = [["gray"] * 14 for _ in range(2)]
+        state.sign_list = [0, 0]
         save_session_json()
 
     state.machine = 0  # 기본 포장기
@@ -1016,6 +974,32 @@ def api_print():
         return jsonify({"success": False, "error": str(e)})
 
 
+def open_browser(url):
+    """웹 UI를 크로미움 전체화면(터치 단말용)으로 띄운다.
+    크로미움이 없으면 기본 브라우저(webbrowser)로 폴백한다.
+    --start-fullscreen: 주소창/탭 없이 화면을 꽉 채워 시작(F11 로 해제 가능).
+    완전 잠금형(키오스크)을 원하면 --start-fullscreen 을 --kiosk 로 바꾸면 된다."""
+    import subprocess
+    for binary in ("chromium-browser", "chromium", "google-chrome-stable", "google-chrome"):
+        path = shutil.which(binary)
+        if not path:
+            continue
+        try:
+            subprocess.Popen([
+                path,
+                "--start-fullscreen",
+                "--noerrdialogs",
+                "--disable-infobars",
+                "--disable-session-crashed-bubble",
+                url,
+            ])
+            return
+        except Exception as e:
+            print("크로미움 실행 실패 → 기본 브라우저 폴백:", e)
+            break
+    webbrowser.open(url)
+
+
 # ─── 시작 ───
 if __name__ == "__main__":
     cfg = load_config()
@@ -1033,7 +1017,7 @@ if __name__ == "__main__":
         if migrated:
             print(f"list.json → DB 이관: {migrated}건")
 
-        # OCR 엔진 초기화 (TensorRT, 실패 시 tesseract 폴백)
+        # OCR 엔진 초기화 (TensorRT 전용)
         init_ocr_engine()
 
         # DB 주기 백업 스레드
@@ -1047,8 +1031,8 @@ if __name__ == "__main__":
         # 오래된 데이터 정리
         cleanup_old_data()
 
-        # 브라우저 열기
-        threading.Timer(1.5, lambda: webbrowser.open(f"http://localhost:{port}")).start()
+        # 브라우저 열기 (크로미움 전체화면)
+        threading.Timer(1.5, lambda: open_browser(f"http://localhost:{port}")).start()
 
     # werkzeug 로그 (GET/POST) 숨기기
     import logging

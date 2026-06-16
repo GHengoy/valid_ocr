@@ -5,8 +5,8 @@
 #
 #  설치 항목:
 #    1) 시스템 패키지(apt)  : python3-pip, flask, pillow, numpy, opencv,
-#                            cups, TensorRT 파이썬(python3-libnvinfer), tesseract
-#    2) pip(--user)        : numpy(1.23.5), pytesseract, pycuda, markupsafe(2.0.1)
+#                            cups, TensorRT 파이썬(python3-libnvinfer)
+#    2) pip(--user)        : numpy(1.23.5), pycuda, markupsafe(2.0.1)
 #    3) Basler pypylon     : (Pylon SDK 설치 여부 확인 후 안내)
 #    4) TensorRT OCR 엔진   : onnx/build_trt.sh 로 rec 엔진 빌드 (선택, ~수십 분)
 #    5) 데이터 폴더(date/)
@@ -50,8 +50,6 @@ sudo apt install -y \
     python3-numpy \
     python3-cups \
     python3-libnvinfer \
-    tesseract-ocr \
-    tesseract-ocr-kor \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libcups2-dev \
@@ -67,7 +65,7 @@ fi
 
 # ── 2. pip 패키지 (--user) ────────────────────────────────────
 echo ""
-echo "[2/6] pip 패키지 설치 (numpy, pytesseract, pycuda)..."
+echo "[2/6] pip 패키지 설치 (numpy, pycuda)..."
 # pycuda 소스 빌드가 CUDA 헤더/라이브러리를 찾도록 경로 전달
 #   (없으면 "fatal error: cuda.h: No such file or directory" 로 빌드 실패)
 export PATH="/usr/local/cuda/bin:$PATH"                       # nvcc 탐지
@@ -81,7 +79,6 @@ export LIBRARY_PATH="/usr/local/cuda/lib64${LIBRARY_PATH:+:$LIBRARY_PATH}"
 #             (1.24 는 np.bool 제거 → "module 'numpy' has no attribute 'bool'")
 #   → 1.23.x 만 둘 다 만족. 1.23.5 = 1.23 마지막. (cv2 는 상위호환이라 무관)
 python3 -m pip install --user "numpy==1.23.5"
-python3 -m pip install --user pytesseract
 # pycuda: 최신 버전은 Python 3.9+ 문법(str | Sequence[...])을 써서 Python 3.8 에서
 # "TypeError: 'ABCMeta' object is not subscriptable" 로 import 실패한다.
 # → Python 3.8 호환 버전으로 고정. (numpy 1.23.5 에 맞춰 빌드됨)
@@ -126,7 +123,7 @@ else
         bash "$ROOT_DIR/onnx/build_trt.sh"
     else
         echo "  -> 건너뜀. 나중에 빌드: bash onnx/build_trt.sh"
-        echo "     (엔진이 없으면 OCR은 tesseract 로 폴백 동작)"
+        echo "     (엔진이 없으면 OCR 비활성 → 스캔이 모두 '인식 실패' 처리됨)"
     fi
 fi
 
