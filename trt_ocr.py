@@ -302,18 +302,24 @@ class TRTPaddleOCR:
             bands.append([s, h])
         if not bands:
             return None
-        stamp = [bands[0]]
-        for b in bands[1:]:
-            if len(stamp) < 2 and b[0] - stamp[-1][1] < h * 0.15:
-                stamp.append(b)
-            else:
-                break
-        if len(stamp) >= 2:
-            d, f = stamp[0], stamp[1]
+        b0 = bands[0]
+        b0h = b0[1] - b0[0]
+        if b0h >= h * 0.26:
+            # 두 줄이 한 밴드로 붙음(똑바로 놓여 줄 간격 좁을 때) → 내부 골(valley)에서 분할
+            top, bot = b0
+            lo = top + int(b0h * 0.35)
+            hi = top + int(b0h * 0.65)
+            split = (lo + int(np.argmin(rs[lo:hi]))) if hi > lo else (top + bot) // 2
+            d, f = [top, split], [split, bot]
         else:
-            a, b = stamp[0]
-            mid = (a + b) // 2
-            d, f = [a, mid], [mid, b]
+            # 날짜줄(첫 밴드) + 가까운 호기줄(둘째 밴드). 멀리 떨어진 영양정보 등은 제외
+            d, f = list(b0), None
+            for b in bands[1:]:
+                if b[0] - b0[1] < h * 0.12:
+                    f = list(b)
+                    break
+            if f is None:
+                f = list(b0)   # 호기줄을 못 찾으면 날짜줄만(폴백)
         pad = int(h * 0.03)
         return ((max(0, d[0] - pad), min(h, d[1] + pad)),
                 (max(0, f[0] - pad), min(h, f[1] + pad)))

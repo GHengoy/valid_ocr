@@ -1,0 +1,3 @@
+● jetson-clocks.service - Max out Jetson clocks at boot
+     Loaded: loaded (/etc/systemd/system/jetson-clocks.service; disabled; vendor preset: enabled)
+     Active: inactive (dead)
