@@ -5,7 +5,7 @@
 #
 #  설치 항목:
 #    1) 시스템 패키지(apt)  : python3-pip, flask, pillow, numpy, opencv,
-#                            cups, TensorRT 파이썬(python3-libnvinfer)
+#                            cups, TensorRT 파이썬(python3-libnvinfer), 크로미움
 #    2) pip(--user)        : numpy(1.23.5), pycuda, markupsafe(2.0.1)
 #    3) Basler pypylon     : (Pylon SDK 설치 여부 확인 후 안내)
 #    4) TensorRT OCR 엔진   : onnx/build_trt.sh 로 rec 엔진 빌드 (선택, ~수십 분)
@@ -61,6 +61,21 @@ if python3 -c "import cv2" 2>/dev/null; then
 else
     echo "  -> cv2 없음 → python3-opencv 설치"
     sudo apt install -y python3-opencv
+fi
+
+# 크로미움 (웹 UI 전체화면 표시용). 없으면 설치 — Jetson/Ubuntu 는 snap 이 표준, 안 되면 apt.
+if command -v chromium >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1; then
+    echo "  -> 크로미움 이미 설치됨 — 건너뜀"
+else
+    echo "  -> 크로미움 없음 → 설치 시도"
+    if command -v snap >/dev/null 2>&1 && sudo snap install chromium; then
+        echo "     크로미움(snap) 설치 완료"
+    elif sudo apt install -y chromium-browser; then
+        echo "     크로미움(apt) 설치 완료"
+    else
+        echo "     !! 크로미움 자동 설치 실패 — 수동 설치 필요: sudo snap install chromium"
+        echo "     !! (없어도 앱은 기본 브라우저로 폴백 실행됨)"
+    fi
 fi
 
 # ── 2. pip 패키지 (--user) ────────────────────────────────────
