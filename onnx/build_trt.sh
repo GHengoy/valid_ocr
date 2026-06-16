@@ -126,14 +126,18 @@ build() {
 
 OK=1
 
-# rec (항상 빌드) — 폭 동적 10~640 (고정 ROI 폭에 충분, 메모리 절약)
+# rec — 이미 빌드돼 있으면 건너뜀(재빌드 시간 낭비 방지). 다시 빌드하려면 onnx/korean_rec.trt 삭제 후 실행
 REC_ONNX="$DIR/korean_rec.onnx"
-REC_IN="$(input_name "$REC_ONNX")"
-echo -e "\n  rec 입력 텐서: ${CYAN}${REC_IN}${RESET}"
-build "$REC_ONNX" "$DIR/korean_rec.trt" \
-  --minShapes=${REC_IN}:1x3x48x10 \
-  --optShapes=${REC_IN}:1x3x48x320 \
-  --maxShapes=${REC_IN}:1x3x48x640 || OK=0
+if [ -s "$DIR/korean_rec.trt" ]; then
+  echo -e "\n  ${CYAN}rec 엔진 이미 있음 → 건너뜀 (재빌드하려면 onnx/korean_rec.trt 삭제)${RESET}"
+else
+  REC_IN="$(input_name "$REC_ONNX")"
+  echo -e "\n  rec 입력 텐서: ${CYAN}${REC_IN}${RESET}"
+  build "$REC_ONNX" "$DIR/korean_rec.trt" \
+    --minShapes=${REC_IN}:1x3x48x10 \
+    --optShapes=${REC_IN}:1x3x48x320 \
+    --maxShapes=${REC_IN}:1x3x48x640 || OK=0
+fi
 
 # det (옵션) — H/W 동적; 고정 ROI 라 max 960 으로 제한(원본 1920 대비 메모리↓)
 if [ "$BUILD_DET" = "1" ]; then
