@@ -6,10 +6,11 @@
 #  설치 항목:
 #    1) 시스템 패키지(apt)  : python3-pip, flask, pillow, numpy, opencv,
 #                            cups, TensorRT 파이썬(python3-libnvinfer), tesseract
-#    2) pip(--user)        : pytesseract, pycuda
+#    2) pip(--user)        : numpy(1.23.5), pytesseract, pycuda, markupsafe(2.0.1)
 #    3) Basler pypylon     : (Pylon SDK 설치 여부 확인 후 안내)
 #    4) TensorRT OCR 엔진   : onnx/build_trt.sh 로 rec 엔진 빌드 (선택, ~수십 분)
 #    5) 데이터 폴더(date/)
+#    6) 바탕화면 아이콘(실행/재시작/종료) + 부팅 자동실행 등록
 #
 #  사용:
 #    bash setup.sh              # 대화형 (TRT 빌드 여부 물어봄)
@@ -35,7 +36,7 @@ echo "=========================================="
 
 # ── 1. 시스템 패키지 ──────────────────────────────────────────
 echo ""
-echo "[1/5] 시스템 패키지 설치 (apt)..."
+echo "[1/6] 시스템 패키지 설치 (apt)..."
 sudo apt update -y
 sudo apt install -y \
     python3-pip \
@@ -65,7 +66,7 @@ fi
 
 # ── 2. pip 패키지 (--user) ────────────────────────────────────
 echo ""
-echo "[2/5] pip 패키지 설치 (numpy, pytesseract, pycuda)..."
+echo "[2/6] pip 패키지 설치 (numpy, pytesseract, pycuda)..."
 # pycuda 소스 빌드가 CUDA 헤더/라이브러리를 찾도록 경로 전달
 #   (없으면 "fatal error: cuda.h: No such file or directory" 로 빌드 실패)
 export PATH="/usr/local/cuda/bin:$PATH"                       # nvcc 탐지
@@ -82,7 +83,7 @@ python3 -m pip install --user "numpy==1.23.5"
 python3 -m pip install --user pytesseract
 # pycuda: 최신 버전은 Python 3.9+ 문법(str | Sequence[...])을 써서 Python 3.8 에서
 # "TypeError: 'ABCMeta' object is not subscriptable" 로 import 실패한다.
-# → Python 3.8 호환 버전으로 고정. (numpy 1.24.4 에 맞춰 빌드됨)
+# → Python 3.8 호환 버전으로 고정. (numpy 1.23.5 에 맞춰 빌드됨)
 python3 -m pip install --user --force-reinstall --no-cache-dir "pycuda==2022.2.2"
 
 # pycuda 가 의존성 mako 를 통해 최신 markupsafe(2.1+)를 끌어오면, 시스템 flask 1.1.1/
@@ -92,7 +93,7 @@ python3 -m pip install --user "markupsafe==2.0.1"
 
 # ── 3. Basler pypylon / Pylon SDK ─────────────────────────────
 echo ""
-echo "[3/5] Basler 카메라(pypylon) 확인..."
+echo "[3/6] Basler 카메라(pypylon) 확인..."
 if python3 -c "from pypylon import pylon" 2>/dev/null; then
     echo "  -> pypylon 사용 가능"
 else
@@ -110,7 +111,7 @@ fi
 
 # ── 4. TensorRT OCR 엔진 빌드 ─────────────────────────────────
 echo ""
-echo "[4/5] TensorRT OCR 엔진..."
+echo "[4/6] TensorRT OCR 엔진..."
 if [ -s "$SCRIPT_DIR/onnx/korean_rec.trt" ]; then
     echo "  -> rec 엔진 이미 있음 (onnx/korean_rec.trt) — 건너뜀"
 else
@@ -130,15 +131,76 @@ fi
 
 # ── 5. 데이터 폴더 ────────────────────────────────────────────
 echo ""
-echo "[5/5] 데이터 폴더 확인..."
+echo "[5/6] 데이터 폴더 확인..."
 mkdir -p "$SCRIPT_DIR/date"
+
+# ── 6. 바탕화면 아이콘 + 부팅 자동실행 ────────────────────────
+echo ""
+echo "[6/6] 바탕화면 아이콘 / 부팅 자동실행 등록..."
+
+# 실행 스크립트 실행권한
+chmod +x "$SCRIPT_DIR/start.sh" "$SCRIPT_DIR/jetson_reboot.sh" "$SCRIPT_DIR/jetson_shutdown.sh" 2>/dev/null || true
+
+make_launcher() {  # $1=경로 $2=이름 $3=설명 $4=Exec $5=아이콘 $6=Terminal(true/false)
+    cat > "$1" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=$2
+Comment=$3
+Exec=$4
+Path=$SCRIPT_DIR
+Icon=$5
+Terminal=$6
+Categories=Utility;
+EOF
+    chmod +x "$1"
+    gio set "$1" metadata::trusted true 2>/dev/null || true   # GNOME 실행 허용
+}
+
+DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+mkdir -p "$DESKTOP_DIR"
+
+make_launcher "$DESKTOP_DIR/valid-ocr.desktop"      "일부인 검증 시스템" "소비기한 일부인 검사 프로그램 실행" "bash $SCRIPT_DIR/start.sh"          "$SCRIPT_DIR/icons/valid-ocr.svg"      "true"
+make_launcher "$DESKTOP_DIR/jetson-reboot.desktop"  "Jetson 재시작"      "Jetson 보드 재시작"              "bash $SCRIPT_DIR/jetson_reboot.sh"  "$SCRIPT_DIR/icons/jetson-reboot.svg"  "false"
+make_launcher "$DESKTOP_DIR/jetson-shutdown.desktop" "Jetson 종료"       "Jetson 보드 전원 끄기"            "bash $SCRIPT_DIR/jetson_shutdown.sh" "$SCRIPT_DIR/icons/jetson-shutdown.svg" "false"
+echo "  -> 바탕화면 아이콘 3개 생성(색상): 🟢실행 / 🔵재시작 / 🔴종료"
+
+# 부팅 자동실행 (로그인 후 터미널 창에서 자동 시작 → 로그 표시)
+mkdir -p "$HOME/.config/autostart"
+cat > "$HOME/.config/autostart/valid-ocr.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=일부인 검증 시스템
+Comment=Boot auto-start for valid_ocr
+Exec=gnome-terminal --title=일부인검증시스템 -- bash -c "cd $SCRIPT_DIR; bash start.sh; exec bash"
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=8
+EOF
+echo "  -> 부팅 자동실행 등록(터미널 표시): ~/.config/autostart/valid-ocr.desktop"
+
+# 터치모니터: 종료/재시작 시 관리자 '암호 입력'을 없앤다 (키보드 없이 종료 가능)
+# polkit 0.105(.pkla) — 해당 사용자에게 power-off/reboot 를 암호 없이 허용
+POLKIT_PKLA="/etc/polkit-1/localauthority/50-local.d/10-valid-ocr-power.pkla"
+sudo mkdir -p /etc/polkit-1/localauthority/50-local.d
+sudo tee "$POLKIT_PKLA" >/dev/null <<EOF
+[valid_ocr: power management without password]
+Identity=unix-user:$USER
+Action=org.freedesktop.login1.power-off;org.freedesktop.login1.reboot;org.freedesktop.login1.power-off-multiple-sessions;org.freedesktop.login1.reboot-multiple-sessions;org.freedesktop.login1.power-off-ignore-inhibit;org.freedesktop.login1.reboot-ignore-inhibit
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+EOF
+echo "  -> 종료/재시작 암호 없이 가능하도록 polkit 설정 ($POLKIT_PKLA)"
 
 # ── 완료 ──────────────────────────────────────────────────────
 echo ""
 echo "=========================================="
 echo " 설치 완료!"
 echo "=========================================="
-echo " 실행        : ./start.sh   (또는 bash start.sh)"
-echo " 부팅 자동실행: ~/.config/autostart/valid-ocr.desktop (이미 등록됨)"
-echo " 설정 파일    : config.json"
+echo " 바탕화면 아이콘 : 일부인 검증 시스템 / Jetson 재시작 / Jetson 종료"
+echo " 수동 실행       : ./start.sh"
+echo " 부팅 자동실행   : 등록됨 (~/.config/autostart/valid-ocr.desktop)"
+echo " 설정 파일       : config.json"
 echo "=========================================="

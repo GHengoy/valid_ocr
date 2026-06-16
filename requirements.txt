@@ -1,11 +1,21 @@
-flask
-opencv-python
-numpy
-pillow
-pytesseract
-pypylon
-# ── TensorRT OCR(PaddleOCR PP-OCRv5) 사용 시 추가 ──
-# Jetson 에서는 pip 대신 apt 로 설치 권장:
-#   tensorrt : sudo apt install python3-libnvinfer  (JetPack 동봉, pip 설치 금지)
-#   pycuda   : python3 -m pip install --user pycuda  (CUDA 툴킷 /usr/local/cuda 필요)
-pycuda
+# ============================================================
+#  일부인 검증 시스템 — 의존성
+#  ※ Jetson 에서는 pip 로 직접 깔지 말고 setup.sh 를 쓰세요.
+#     (tensorrt/opencv 는 시스템 패키지, numpy/pycuda 는 버전 고정 필요)
+#  이 파일은 참고용입니다.
+# ============================================================
+
+# ── 시스템(apt) 으로 설치 (pip 금지) ──
+#   flask, pillow, opencv(cv2), cups       : python3-flask python3-pil python3-opencv python3-cups
+#   tensorrt(python)                       : python3-libnvinfer   (JetPack 동봉)
+#   tesseract                              : tesseract-ocr tesseract-ocr-kor
+
+# ── pip(--user) 로 설치, 버전 고정 필수 ──
+numpy==1.23.5        # pycuda(>=1.23) 와 tensorrt 8.5(np.bool, <1.24) 의 교집합
+markupsafe==2.0.1    # 시스템 flask 1.1.1 의 soft_unicode 호환
+pycuda==2022.2.2     # Python 3.8 호환 (최신은 3.9+ 문법 사용)
+pytesseract          # tesseract 폴백용
+
+# ── 카메라(Basler) ──
+#   pypylon                                : Pylon SDK(aarch64) 설치 후
+#   python3 -m pip install --user pypylon

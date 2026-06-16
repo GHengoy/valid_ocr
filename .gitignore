@@ -1,12 +1,16 @@
 # Captured data / runtime DB
 date/
 sessions.db
+sessions.db-wal
+sessions.db-shm
 backups/
 verify_ocr_result.csv
 
 # Large models / weights (배포 시 별도 다운로드/빌드)
 onnx/*.onnx
 onnx/*.trt
+ocr_models/
+onnx_export/
 
 # Fonts (별도 배치)
 malgun.ttf
