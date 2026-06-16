@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>일부인 검증 시스템</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-
+        /* 오프라인 동작: CDN 폰트 대신 기기에 설치된 Noto Sans CJK KR 사용 */
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
         html, body {
-            font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            font-family: 'Noto Sans CJK KR', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
             background: #0f1117;
             color: #e4e4e7;
             height: 100vh;
@@ -1636,7 +1635,7 @@
         win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
             <title>일부인 점검 일지</title>
             <style>
-                body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; }
+                body { font-family: 'Noto Sans CJK KR', 'Malgun Gothic', sans-serif; padding: 10px; }
                 table { border-collapse: collapse; }
                 img { max-height: 50px; }
                 svg { display: block; }
