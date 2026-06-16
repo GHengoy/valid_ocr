@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시스템 설정</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            background: #0f1117;
+            color: #e4e4e7;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .page {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 18px 28px;
+        }
+
+        /* 헤더 */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 18px;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-right: auto;
+        }
+        .back-link {
+            color: #a1a1aa;
+            text-decoration: none;
+            font-size: 13px;
+            padding: 8px 20px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+        .back-link:hover { color: #a78bfa; border-color: rgba(167,139,250,0.3); }
+
+        /* 설정 행 */
+        .settings-body { flex: 1; display: flex; flex-direction: column; gap: 0; }
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6366f1;
+            padding: 10px 0 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            margin-bottom: 8px;
+        }
+        .row {
+            display: flex;
+            align-items: center;
+            padding: 5px 0;
+            gap: 12px;
+        }
+        .row label {
+            min-width: 140px;
+            color: #a1a1aa;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .row input[type="text"],
+        .row input[type="number"] {
+            padding: 6px 11px;
+            font-size: 13px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 7px;
+            color: #e4e4e7;
+            width: 220px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .row input:focus { outline: none; border-color: rgba(99,102,241,0.5); }
+        .row input[type="range"] {
+            width: 180px;
+            accent-color: #6366f1;
+            height: 5px;
+        }
+        .hint { font-size: 11px; color: #52525b; }
+        .scale-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: #a78bfa;
+            min-width: 42px;
+            text-align: center;
+        }
+        .data-info {
+            display: inline;
+            font-size: 12px;
+            color: #71717a;
+            margin-left: 12px;
+        }
+
+        /* PFS select + 업로드 아이콘 */
+        .pfs-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pfs-row select {
+            padding: 6px 28px 6px 11px;
+            font-size: 13px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 7px;
+            color: #e4e4e7;
+            font-family: inherit;
+            width: 220px;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23a1a1aa' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 9px center;
+        }
+        .pfs-row select:focus { outline: none; border-color: rgba(99,102,241,0.5); }
+        .upload-icon {
+            position: relative;
+            width: 32px; height: 32px;
+            border-radius: 7px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .upload-icon:hover { background: rgba(255,255,255,0.12); border-color: rgba(99,102,241,0.4); }
+        .upload-icon svg { width: 16px; height: 16px; fill: #a1a1aa; pointer-events: none; }
+        .upload-icon:hover svg { fill: #a78bfa; }
+        .upload-icon input[type="file"] {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* 버튼 */
+        .btn {
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-save {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+        }
+        .btn-save:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.4); transform: translateY(-1px); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.06);
+            color: #a1a1aa;
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 6px 14px;
+            font-size: 12px;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); color: #e4e4e7; }
+        .btn-cleanup {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            padding: 5px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+        .btn-restart {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(245,158,11,0.3);
+        }
+        .btn-restart:hover { box-shadow: 0 4px 16px rgba(245,158,11,0.4); transform: translateY(-1px); }
+
+        /* 상태 메시지 */
+        .status {
+            margin-top: 8px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            display: none;
+            font-size: 13px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .status.success { display: block; background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+        .status.error { display: block; background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+
+        /* ROI 에디터 오버레이 */
+        .roi-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .roi-overlay.show { display: flex; }
+        .roi-editor {
+            position: relative;
+            display: inline-block;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.1);
+            cursor: crosshair;
+            user-select: none;
+            touch-action: none;
+        }
+        .roi-editor img {
+            display: block;
+            width: 792px;
+            height: 607px;
+            pointer-events: none;
+        }
+        .roi-editor .roi-box {
+            position: absolute;
+            border: 3px solid #ef4444;
+            background: rgba(239,68,68,0.1);
+            pointer-events: none;
+        }
+        .roi-info { font-size: 12px; color: #71717a; }
+
+        /* 재시작 오버레이 */
+        .restart-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .restart-overlay.show { display: flex; }
+        .restart-overlay .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(255,255,255,0.15);
+            border-top-color: #a78bfa;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .restart-overlay p { color: #e4e4e7; font-size: 18px; font-weight: 600; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <!-- 헤더: 제목 + 설정저장 + 서버재시작 + 메인으로 -->
+    <div class="header">
+        <h1>시스템 설정</h1>
+        <button class="btn btn-save" onclick="saveSettings()">설정 저장</button>
+        <button class="btn btn-restart" onclick="restartServer()">서버 재시작</button>
+        <a href="/" class="back-link">메인으로 돌아가기</a>
+    </div>
+
+    <div class="settings-body">
+        <!-- 카메라 설정 -->
+        <div class="section-title">카메라 설정</div>
+        <div class="row">
+            <label>카메라 IP 주소</label>
+            <input type="text" id="cameraIp" placeholder="192.168.1.11">
+        </div>
+        <div class="row">
+            <label>설정 파일 (PFS)</label>
+            <div class="pfs-row">
+                <select id="cameraSetting"></select>
+                <div class="upload-icon" title="PFS 파일 업로드">
+                    <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                    <input type="file" accept=".pfs" onchange="uploadPFS(this)">
+                </div>
+            </div>
+            <span class="hint">변경 시 서버 재시작 필요</span>
+        </div>
+
+        <!-- 검사 영역 -->
+        <div class="section-title">검사 영역 (ROI)</div>
+        <div class="row">
+            <label>현재 영역</label>
+            <span class="roi-info" id="roiInfo"></span>
+            <button class="btn btn-secondary" onclick="captureSnapshot()">화면 촬영 / 영역 지정</button>
+            <button class="btn btn-secondary" onclick="resetROI()">기본값</button>
+        </div>
+
+        <!-- 서버 / 표시 -->
+        <div class="section-title">서버 / 표시 설정</div>
+        <div class="row">
+            <label>포트 번호</label>
+            <input type="number" id="serverPort" min="1" max="65535" placeholder="5050">
+            <span class="hint">변경 시 서버 재시작 필요</span>
+        </div>
+        <div class="row">
+            <label>글자 크기</label>
+            <input type="range" id="fontScale" min="80" max="150" step="5" value="100">
+            <span class="scale-value" id="fontScaleValue">100%</span>
+            <span class="hint">80~150%</span>
+        </div>
+
+        <!-- 데이터 보관 -->
+        <div class="section-title">데이터 보관</div>
+        <div class="row">
+            <label>보관 기간 (일)</label>
+            <input type="number" id="retentionDays" min="1" max="3650" placeholder="200">
+            <button class="btn btn-cleanup" onclick="cleanupData()">수동 정리</button>
+            <span class="data-info" id="dataInfo"></span>
+        </div>
+    </div>
+
+    <div class="status" id="statusMsg"></div>
+</div>
+
+<!-- ROI 에디터 오버레이 -->
+<div class="roi-overlay" id="roiOverlay">
+    <div class="roi-editor" id="roiEditor">
+        <img id="roiImg" src="">
+        <div class="roi-box" id="roiBox"></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+        <button class="btn btn-save" onclick="confirmROI()">확인</button>
+        <button class="btn btn-secondary" style="padding:8px 20px;font-size:13px;" onclick="cancelROI()">취소</button>
+    </div>
+</div>
+
+<!-- 재시작 오버레이 -->
+<div class="restart-overlay" id="restartOverlay">
+    <div class="spinner"></div>
+    <p>서버 재시작 중...</p>
+    <p style="font-size:13px;color:#71717a;">잠시 후 자동으로 새로고침됩니다</p>
+</div>
+
+<script>
+let currentROI = {x1: 240, y1: 260, x2: 580, y2: 410};
+let backupROI = null;
+let roiDragging = false;
+let roiStartX = 0, roiStartY = 0;
+
+window.onload = function() {
+    Promise.all([
+        fetch('/api/config').then(r => r.json()),
+        fetch('/api/pfs_files').then(r => r.json())
+    ]).then(([cfg, pfsFiles]) => {
+        document.getElementById('cameraIp').value = cfg.camera_ip || '';
+        document.getElementById('retentionDays').value = cfg.data_retention_days || 200;
+        document.getElementById('serverPort').value = cfg.server_port || 5050;
+        const scale = cfg.font_scale || 100;
+        document.getElementById('fontScale').value = scale;
+        document.getElementById('fontScaleValue').textContent = scale + '%';
+        if (cfg.roi) currentROI = cfg.roi;
+        updateROIInfo();
+        populatePFSSelect(pfsFiles, cfg.camera_setting || '');
+    });
+    loadDataInfo();
+
+    document.getElementById('fontScale').addEventListener('input', function() {
+        document.getElementById('fontScaleValue').textContent = this.value + '%';
+    });
+
+    const editor = document.getElementById('roiEditor');
+    editor.addEventListener('pointerdown', roiPointerDown);
+    editor.addEventListener('pointermove', roiPointerMove);
+    editor.addEventListener('pointerup', roiPointerUp);
+    editor.addEventListener('pointerleave', roiPointerUp);
+};
+
+function captureSnapshot() {
+    const img = document.getElementById('roiImg');
+    img.src = '/api/snapshot?t=' + Date.now();
+    img.onload = function() {
+        backupROI = {...currentROI};
+        document.getElementById('roiOverlay').classList.add('show');
+        drawROIBox();
+    };
+    img.onerror = function() { alert('카메라 이미지를 가져올 수 없습니다.'); };
+}
+
+function confirmROI() {
+    document.getElementById('roiOverlay').classList.remove('show');
+    updateROIInfo();
+}
+
+function cancelROI() {
+    if (backupROI) currentROI = {...backupROI};
+    document.getElementById('roiOverlay').classList.remove('show');
+    updateROIInfo();
+}
+
+function drawROIBox() {
+    const box = document.getElementById('roiBox');
+    box.style.left = currentROI.x1 + 'px';
+    box.style.top = currentROI.y1 + 'px';
+    box.style.width = (currentROI.x2 - currentROI.x1) + 'px';
+    box.style.height = (currentROI.y2 - currentROI.y1) + 'px';
+}
+
+function updateROIInfo() {
+    document.getElementById('roiInfo').textContent =
+        '(' + currentROI.x1 + ', ' + currentROI.y1 + ') ~ (' + currentROI.x2 + ', ' + currentROI.y2 + ')  ' +
+        (currentROI.x2 - currentROI.x1) + 'x' + (currentROI.y2 - currentROI.y1) + 'px';
+}
+
+function resetROI() {
+    currentROI = {x1: 240, y1: 260, x2: 580, y2: 410};
+    drawROIBox();
+    updateROIInfo();
+}
+
+function getEditorPos(e) {
+    const rect = document.getElementById('roiEditor').getBoundingClientRect();
+    return {
+        x: Math.max(0, Math.min(792, Math.round(e.clientX - rect.left))),
+        y: Math.max(0, Math.min(607, Math.round(e.clientY - rect.top)))
+    };
+}
+
+function roiPointerDown(e) {
+    roiDragging = true;
+    const pos = getEditorPos(e);
+    roiStartX = pos.x; roiStartY = pos.y;
+    e.target.setPointerCapture(e.pointerId);
+}
+
+function roiPointerMove(e) {
+    if (!roiDragging) return;
+    const pos = getEditorPos(e);
+    currentROI.x1 = Math.min(roiStartX, pos.x);
+    currentROI.y1 = Math.min(roiStartY, pos.y);
+    currentROI.x2 = Math.max(roiStartX, pos.x);
+    currentROI.y2 = Math.max(roiStartY, pos.y);
+    drawROIBox();
+}
+
+function roiPointerUp(e) {
+    if (!roiDragging) return;
+    roiDragging = false;
+    if ((currentROI.x2 - currentROI.x1) < 20 || (currentROI.y2 - currentROI.y1) < 20) {
+        if (backupROI) currentROI = {...backupROI};
+        drawROIBox();
+    }
+}
+
+function saveSettings() {
+    const data = {
+        camera_ip: document.getElementById('cameraIp').value,
+        camera_setting: document.getElementById('cameraSetting').value,
+        data_retention_days: parseInt(document.getElementById('retentionDays').value),
+        server_port: parseInt(document.getElementById('serverPort').value),
+        font_scale: parseInt(document.getElementById('fontScale').value),
+        roi: currentROI
+    };
+    fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(() => {
+        showStatus('설정이 저장되었습니다.', 'success');
+    }).catch(err => { showStatus('저장 실패: ' + err, 'error'); });
+}
+
+function cleanupData() {
+    if (!confirm('보관 기간이 지난 데이터를 삭제하시겠습니까?')) return;
+    fetch('/api/cleanup', {method: 'POST'}).then(r => r.json()).then(result => {
+        showStatus(result.deleted + '개의 오래된 데이터가 삭제되었습니다.', 'success');
+        loadDataInfo();
+    });
+}
+
+function loadDataInfo() {
+    fetch('/api/history').then(r => r.json()).then(data => {
+        const info = document.getElementById('dataInfo');
+        info.textContent = '저장된 일지: ' + data.length + '건';
+        if (data.length > 0) info.textContent += ' (' + data[data.length-1].date + ' ~ ' + data[0].date + ')';
+    });
+}
+
+function populatePFSSelect(files, selected) {
+    const sel = document.getElementById('cameraSetting');
+    sel.innerHTML = '';
+    if (files.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.textContent = '(PFS 파일 없음)';
+        sel.appendChild(opt);
+        return;
+    }
+    files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f; opt.textContent = f;
+        if (f === selected) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+
+function uploadPFS(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    if (!file.name.toLowerCase().endsWith('.pfs')) {
+        showStatus('.pfs 파일만 업로드 가능합니다.', 'error');
+        input.value = ''; return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch('/api/upload_pfs', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                showStatus(result.filename + ' 업로드 완료', 'success');
+                fetch('/api/pfs_files').then(r => r.json()).then(files => {
+                    populatePFSSelect(files, result.filename);
+                });
+            } else { showStatus('업로드 실패: ' + result.error, 'error'); }
+        }).catch(err => { showStatus('업로드 실패: ' + err, 'error'); });
+    input.value = '';
+}
+
+function restartServer() {
+    if (!confirm('서버를 재시작하시겠습니까?\n카메라 설정 등 변경사항이 적용됩니다.')) return;
+    document.getElementById('restartOverlay').classList.add('show');
+    fetch('/api/restart', { method: 'POST' }).catch(() => {});
+    setTimeout(function pollServer() {
+        fetch('/api/config', { signal: AbortSignal.timeout(2000) })
+            .then(r => { if (r.ok) window.location.reload(); else setTimeout(pollServer, 1000); })
+            .catch(() => { setTimeout(pollServer, 1000); });
+    }, 3000);
+}
+
+function showStatus(msg, type) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = 'status ' + type;
+    setTimeout(() => { el.className = 'status'; }, 5000);
+}
+</script>
+</body>
+</html>

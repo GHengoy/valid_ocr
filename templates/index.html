@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일부인 검증 시스템</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
+        html, body {
+            font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            background: #0f1117;
+            color: #e4e4e7;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ═══ 헤더 ═══ */
+        .header {
+            background: linear-gradient(135deg, #1a1c2e 0%, #252840 100%);
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 48px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 10;
+        }
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .header-info {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        .header-info .badge {
+            padding: 4px 12px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .header-info .badge:hover { background: rgba(255,255,255,0.1); }
+
+        /* 카메라 토글 */
+        .cam-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #e4e4e7;
+            font-family: inherit;
+        }
+        .cam-toggle:hover { background: rgba(255,255,255,0.1); }
+        .cam-toggle .toggle-track {
+            width: 32px; height: 18px;
+            background: #3f3f46;
+            border-radius: 9px;
+            position: relative;
+            transition: background 0.2s;
+        }
+        .cam-toggle.on .toggle-track { background: #22c55e; }
+        .cam-toggle .toggle-knob {
+            width: 14px; height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px; left: 2px;
+            transition: left 0.2s;
+        }
+        .cam-toggle.on .toggle-knob { left: 16px; }
+
+        /* 글자 크기 조절 */
+        .font-control {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 20px;
+            padding: 2px;
+        }
+        .font-control button {
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            color: #a1a1aa;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .font-control button:hover { background: rgba(99,102,241,0.4); color: #fff; }
+        .font-control .font-value {
+            font-size: 11px;
+            color: #71717a;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .settings-link {
+            color: #71717a;
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.2s;
+        }
+        .settings-link:hover { color: #a78bfa; border-color: rgba(167,139,250,0.3); }
+
+        /* ═══ 메인 레이아웃 ═══ */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 8px;
+            padding: 8px;
+            height: calc(100vh - 48px);
+        }
+
+        /* ═══ 카메라 ═══ */
+        .camera-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 0;
+        }
+        .camera-feed {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            flex: 1;
+            min-height: 0;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+        .camera-feed img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .scan-btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+            letter-spacing: -0.3px;
+        }
+        .scan-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.4); }
+        .scan-btn:active { transform: scale(0.98); }
+        .scan-btn:disabled {
+            background: #27272a;
+            color: #52525b;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* ═══ 우측 패널 ═══ */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* 카드 공통 */
+        .card {
+            background: linear-gradient(135deg, #1a1c2e 0%, #1e2035 100%);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+
+        /* 날짜 */
+        .date-display {
+            padding: 10px;
+            text-align: center;
+            font-size: 1.375rem;
+            font-weight: 700;
+            color: #fbbf24;
+            cursor: pointer;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .date-display::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+            border-radius: 3px 3px 0 0;
+        }
+        .date-display:hover { border-color: rgba(251,191,36,0.3); }
+
+        /* 조/야 + A/B */
+        .shift-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .shift-label {
+            padding: 8px 3px;
+            text-align: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #a1a1aa;
+        }
+
+        /* 포장기 */
+        .machine-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .machine-btn {
+            padding: 8px 3px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            background: linear-gradient(135deg, #1a1c2e, #1e2035);
+            color: #71717a;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+        .machine-btn:hover { border-color: rgba(255,255,255,0.15); }
+        .machine-btn.active {
+            border-color: rgba(34,197,94,0.5);
+            color: #4ade80;
+            background: linear-gradient(135deg, #14291e, #1a2e24);
+            box-shadow: 0 0 12px rgba(34,197,94,0.1);
+        }
+
+        /* 호기 목록 */
+        .machine-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            scrollbar-width: thin;
+            scrollbar-color: #333 transparent;
+        }
+        .machine-list::-webkit-scrollbar { width: 4px; }
+        .machine-list::-webkit-scrollbar-track { background: transparent; }
+        .machine-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+        .machine-item {
+            display: grid;
+            grid-template-columns: 60px 1fr 58px;
+            gap: 4px;
+            align-items: center;
+            padding: 0 10px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.05rem;
+            flex: 1;
+            min-height: 0;
+            border: 1px solid transparent;
+            transition: all 0.15s;
+        }
+        .machine-item:hover {
+            background: rgba(99,102,241,0.08);
+            border-color: rgba(99,102,241,0.15);
+        }
+        .machine-item .num {
+            color: #71717a;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .machine-item .date {
+            text-align: center;
+            font-weight: 600;
+            padding: 1px 4px;
+            border-radius: 4px;
+        }
+        .machine-item .date.green { color: #4ade80; }
+        .machine-item .date.red { color: #f87171; }
+        .machine-item .date.gray { color: #52525b; }
+        .machine-item .thumb {
+            width: 50px;
+            height: 26px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .machine-item .no-thumb {
+            width: 50px;
+            height: 26px;
+            display: inline-block;
+        }
+
+        /* OK/NG */
+        .count-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .count-box {
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .count-ok {
+            background: linear-gradient(135deg, #14291e, #1a2e24);
+            color: #4ade80;
+            border: 1px solid rgba(34,197,94,0.2);
+        }
+        .count-ng {
+            background: linear-gradient(135deg, #2d1520, #351a25);
+            color: #f87171;
+            border: 1px solid rgba(248,113,113,0.2);
+        }
+
+        /* 하단 버튼 */
+        .bottom-btns {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .bottom-btn {
+            padding: 10px 3px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.04);
+            color: #a1a1aa;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .bottom-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: #e4e4e7;
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        /* ═══ 모달 ═══ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: linear-gradient(135deg, #1e2035, #252840);
+            border-radius: 16px;
+            position: relative;
+            padding: 24px;
+            min-width: 400px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: rgba(255,255,255,0.06);
+            border: none;
+            color: #71717a;
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px 10px;
+            z-index: 10;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .modal-close:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+        .modal h2 {
+            margin-bottom: 16px;
+            color: #e4e4e7;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        /* 숫자 키패드 */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .keypad button {
+            padding: 18px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.06);
+            color: #e4e4e7;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.1s;   /* transform 은 즉시 반응(누름 피드백 지연 제거) */
+        }
+        .keypad button:hover { background: rgba(99,102,241,0.2); }
+        .keypad button:active { background: rgba(99,102,241,0.4); transform: scale(0.96); }
+        .keypad-display {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            padding: 16px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            color: #fbbf24;
+            min-height: 65px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* 조/야 선택 모달 */
+        .shift-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .shift-btn {
+            padding: 20px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.06);
+            color: #a1a1aa;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .shift-btn.selected {
+            border-color: rgba(34,197,94,0.6);
+            color: #4ade80;
+            background: rgba(34,197,94,0.1);
+        }
+        .shift-btn:hover { background: rgba(255,255,255,0.1); }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .modal-actions button {
+            flex: 1;
+            padding: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-confirm {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+        }
+        .btn-confirm:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+        .btn-cancel {
+            background: rgba(255,255,255,0.06);
+            color: #a1a1aa;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .btn-cancel:hover { background: rgba(255,255,255,0.1); }
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+            color: #fff !important;
+            border: none !important;
+        }
+
+        /* 일지 내역 테이블 */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .history-table th, .history-table td {
+            padding: 10px 8px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.875rem;
+        }
+        .history-table th {
+            background: rgba(99,102,241,0.15);
+            color: #a78bfa;
+            font-weight: 600;
+        }
+        .history-table tr:hover { background: rgba(255,255,255,0.04); }
+        .history-table .btn-view {
+            padding: 6px 16px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .history-table .btn-view:hover { box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
+        .history-table .btn-delete {
+            padding: 6px 12px;
+            background: rgba(220,38,38,0.15);
+            color: #f87171;
+            border: 1px solid rgba(220,38,38,0.2);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .history-table .btn-delete:hover { background: rgba(220,38,38,0.3); }
+
+        /* 삭제 키패드 버튼 */
+        .dk {
+            padding: 16px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.06);
+            color: #e4e4e7;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .dk:hover { background: rgba(255,255,255,0.12); }
+        .dk:active { transform: scale(0.96); }
+
+        /* 페이지네이션 */
+        .page-btn {
+            min-width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+            color: #a1a1aa;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .page-btn:hover { background: rgba(99,102,241,0.2); color: #fff; }
+        .page-btn.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        /* 점검일지 상세 */
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .report-item {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+        .report-item .ri-label { font-size: 0.8rem; color: #71717a; margin-bottom: 4px; }
+        .report-item .ri-date { font-size: 1rem; font-weight: 600; }
+        .report-item img {
+            max-width: 100%;
+            max-height: 80px;
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+        .sign-area {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .sign-box {
+            flex: 1;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .sign-box canvas {
+            background: white;
+            border-radius: 4px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        .sign-box img {
+            max-width: 200px;
+            max-height: 100px;
+            border-radius: 4px;
+        }
+
+        /* 11/12호기 선택 */
+        .point-select {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .point-btn {
+            padding: 30px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.06);
+            color: #e4e4e7;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .point-btn:hover {
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.1);
+        }
+
+        /* NG 경고 */
+        .ng-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(220, 38, 38, 0.92);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .ng-overlay.active { display: flex; }
+        .ng-overlay .ng-text {
+            font-size: 3.75rem;
+            font-weight: 700;
+            text-align: center;
+            color: white;
+            line-height: 1.4;
+            text-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        /* 조 불일치 경고 (노랑) — 기록은 되지만 확인 필요 */
+        .jo-warn-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(217, 119, 6, 0.94);
+            z-index: 2000;
+            justify-content: center; align-items: center;
+            cursor: pointer;
+        }
+        .jo-warn-overlay.active { display: flex; }
+        .jo-warn-overlay .jo-warn-text {
+            text-align: center; color: white; line-height: 1.4;
+            text-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+
+        /* 이미지 미리보기 */
+        .preview-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1500;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            cursor: pointer;
+        }
+        .preview-modal.active { display: flex; }
+        .preview-modal .preview-label {
+            color: #fbbf24;
+            font-size: 1.375rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .preview-modal .preview-date {
+            font-size: 1.125rem;
+            margin-bottom: 15px;
+        }
+        .preview-modal img {
+            max-width: 80vw;
+            max-height: 60vh;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+        .preview-modal .preview-hint {
+            color: #52525b;
+            font-size: 0.85rem;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <div class="header">
+        <h1>일부인 검증 시스템</h1>
+        <div class="header-info">
+            <span class="badge" id="headerDate">날짜 미설정</span>
+            <span class="badge" id="headerShift">--</span>
+            <button class="cam-toggle" id="cameraToggle" onclick="toggleCamera()">
+                CAM
+                <div class="toggle-track"><div class="toggle-knob"></div></div>
+            </button>
+            <div class="font-control">
+                <button onclick="changeFontScale(-5)">-</button>
+                <span class="font-value" id="fontScaleDisplay">100%</span>
+                <button onclick="changeFontScale(5)">+</button>
+            </div>
+            <a href="/settings" class="settings-link">설정</a>
+        </div>
+    </div>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="main-container">
+        <!-- 왼쪽: 카메라 + 스캔 버튼 -->
+        <div class="camera-section">
+            <div class="camera-feed" style="position:relative;">
+                <img id="cameraImg" src="" alt="카메라">
+                <div id="camOffOverlay" style="display:flex;position:absolute;top:0;left:0;right:0;bottom:0;background:#000;justify-content:center;align-items:center;flex-direction:column;gap:10px;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 1l22 22M21 21H3a2 2 0 01-2-2V8a2 2 0 012-2h3m3-3h6l2 3h4a2 2 0 012 2v9.34"/>
+                        <path d="M14.121 14.121A3 3 0 109.88 9.88"/>
+                    </svg>
+                    <span style="color:#52525b;font-size:15px;font-weight:600;">카메라 OFF</span>
+                </div>
+            </div>
+            <button class="scan-btn" id="scanBtn" onclick="scanAll()" disabled>
+                하단에 일부인이 보이도록 올려놓은 후 여기를 터치하세요
+            </button>
+        </div>
+
+        <!-- 오른쪽: 컨트롤 패널 -->
+        <div class="right-panel">
+            <!-- 날짜 표시 -->
+            <div class="card date-display" onclick="openDateModal()">
+                <span id="dateDisplay">일부인을 입력하세요</span>
+            </div>
+
+            <!-- 조/야 + A/B -->
+            <div class="shift-row">
+                <div class="card shift-label" id="shiftJoYa">조/야</div>
+                <div class="card shift-label" id="shiftAB">A/B</div>
+            </div>
+
+            <!-- 포장기 선택 -->
+            <div class="machine-row">
+                <button class="machine-btn" id="machineBtn0" onclick="setMachine(0)">포장기</button>
+                <button class="machine-btn" id="machineBtn1" onclick="setMachine(1)">멀티포장기</button>
+            </div>
+
+            <!-- 호기 목록 -->
+            <div class="machine-list" id="machineList"></div>
+
+            <!-- OK/NG 카운트 -->
+            <div class="count-row">
+                <div class="count-box count-ok">OK: <span id="okCount">0</span></div>
+                <div class="count-box count-ng">NG: <span id="ngCount">0</span></div>
+            </div>
+
+            <!-- 하단 버튼 -->
+            <div class="bottom-btns">
+                <button class="bottom-btn" onclick="openNewSession()">새 일지</button>
+                <button class="bottom-btn" onclick="openReport()">일지 확인</button>
+                <button class="bottom-btn" onclick="openHistory()">일지 내역</button>
+                <button class="bottom-btn btn-danger" onclick="confirmShutdown()">종료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 모달: 날짜 입력 ===== -->
+    <div class="modal-overlay" id="dateModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeModal('dateModal')">&times;</button>
+            <h2>소비기한 날짜 입력</h2>
+            <div class="keypad-display" id="keypadDisplay">YYYY / MM / DD</div>
+            <div class="keypad">
+                <button onclick="keypadInput(1)">1</button>
+                <button onclick="keypadInput(2)">2</button>
+                <button onclick="keypadInput(3)">3</button>
+                <button onclick="keypadInput(4)">4</button>
+                <button onclick="keypadInput(5)">5</button>
+                <button onclick="keypadInput(6)">6</button>
+                <button onclick="keypadInput(7)">7</button>
+                <button onclick="keypadInput(8)">8</button>
+                <button onclick="keypadInput(9)">9</button>
+                <button onclick="keypadDelete()">지우기</button>
+                <button onclick="keypadInput(0)">0</button>
+                <button onclick="keypadConfirm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;">다음</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 모달: 조/야 + A/B 선택 ===== -->
+    <div class="modal-overlay" id="shiftModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeModal('shiftModal')">&times;</button>
+            <h2>조/야간 및 A/B조 선택</h2>
+            <p style="margin:10px 0; color:#71717a;">조/야간을 선택해 주세요</p>
+            <div class="shift-grid">
+                <button class="shift-btn" id="btnJo" onclick="selectShiftType('조간')">조 간</button>
+                <button class="shift-btn" id="btnYa" onclick="selectShiftType('야간')">야 간</button>
+            </div>
+            <p style="margin:10px 0; color:#71717a;">A/B조를 선택해 주세요</p>
+            <div class="shift-grid">
+                <button class="shift-btn" id="btnA" onclick="selectShiftGroup('A조')">A 조</button>
+                <button class="shift-btn" id="btnB" onclick="selectShiftGroup('B조')">B 조</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('shiftModal')">취소</button>
+                <button class="btn-confirm" onclick="confirmShift()">완료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 모달: 11/12호기 선택 ===== -->
+    <div class="modal-overlay" id="pointModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeModal('pointModal')">&times;</button>
+            <h2>일부인 선택</h2>
+            <div class="point-select">
+                <button class="point-btn" onclick="confirmPoint(0)" id="pointBtn0">--</button>
+                <button class="point-btn" onclick="confirmPoint(1)" id="pointBtn1">--</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 모달: 일지 내역 ===== -->
+    <div class="modal-overlay" id="historyModal">
+        <div class="modal" style="min-width:750px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+            <button class="modal-close" onclick="closeModal('historyModal')">&times;</button>
+            <h2>일부인 점검 일지 내역</h2>
+            <!-- 날짜 선택 -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-shrink:0;align-items:center;">
+                <input type="date" id="historyDatePicker" style="flex:1;padding:10px 14px;font-size:15px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e4e4e7;font-family:inherit;cursor:pointer;" onchange="filterHistoryByDate()">
+                <button onclick="document.getElementById('historyDatePicker').value='';filterHistoryByDate();" style="padding:10px 20px;background:rgba(255,255,255,0.06);color:#a1a1aa;border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;">전체 보기</button>
+            </div>
+            <div style="flex:1;">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>조/야</th>
+                            <th>A/B</th>
+                            <th>서명</th>
+                            <th></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+            <!-- 페이지네이션 -->
+            <div id="historyPaging" style="display:flex;justify-content:center;align-items:center;gap:6px;padding:10px 0;flex-shrink:0;"></div>
+            <div class="modal-actions" style="flex-shrink:0;">
+                <button class="btn-cancel" onclick="closeModal('historyModal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 모달: 삭제 비밀번호 입력 ===== -->
+    <div class="modal-overlay" id="deletePassModal">
+        <div class="modal" style="min-width:340px;max-width:380px;">
+            <button class="modal-close" onclick="closeModal('deletePassModal')">&times;</button>
+            <h2 style="text-align:center;">비밀번호 입력</h2>
+            <p style="text-align:center;color:#71717a;font-size:13px;margin-bottom:12px;">삭제하려면 4자리 비밀번호를 입력하세요</p>
+            <div id="deletePassDisplay" style="text-align:center;font-size:2rem;font-weight:700;padding:12px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:12px;color:#e4e4e7;min-height:55px;letter-spacing:12px;border:1px solid rgba(255,255,255,0.06);">____</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                <button onclick="deletePassInput(1)" class="dk">1</button>
+                <button onclick="deletePassInput(2)" class="dk">2</button>
+                <button onclick="deletePassInput(3)" class="dk">3</button>
+                <button onclick="deletePassInput(4)" class="dk">4</button>
+                <button onclick="deletePassInput(5)" class="dk">5</button>
+                <button onclick="deletePassInput(6)" class="dk">6</button>
+                <button onclick="deletePassInput(7)" class="dk">7</button>
+                <button onclick="deletePassInput(8)" class="dk">8</button>
+                <button onclick="deletePassInput(9)" class="dk">9</button>
+                <button onclick="deletePassClear()" class="dk" style="font-size:14px;">지우기</button>
+                <button onclick="deletePassInput(0)" class="dk">0</button>
+                <button onclick="deletePassConfirm()" class="dk" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;font-size:14px;">삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 모달: 점검일지 상세 ===== -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal" style="min-width:900px; max-width:95vw; max-height:92vh; padding:0; background:#fff; color:#000; display:flex; flex-direction:column; overflow:hidden;">
+            <button class="modal-close" onclick="closeModal('reportModal')" style="color:#666;">&times;</button>
+            <!-- 인쇄용 양식 -->
+            <div id="reportPrintArea" style="padding:20px; flex:1; overflow-y:auto;">
+                <!-- 상단: 제목 + 서명란 -->
+                <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+                    <tr>
+                        <td style="vertical-align:top;width:60%;">
+                            <h2 style="font-size:26px;font-weight:bold;color:#000;margin:0 0 10px 0;">일부인 점검 일지</h2>
+                            <div style="font-size:14px;color:#333;">일부인 : <span id="reportInfo"></span></div>
+                            <span id="reportDate2" style="display:none;"></span>
+                        </td>
+                        <td style="vertical-align:top;text-align:right;">
+                            <table style="border-collapse:collapse;display:inline-table;">
+                                <tr>
+                                    <td style="border:2px solid #000;padding:5px 16px;font-size:13px;font-weight:bold;text-align:center;width:110px;">품 질</td>
+                                    <td style="border:2px solid #000;padding:5px 16px;font-size:13px;font-weight:bold;text-align:center;width:110px;">생 산</td>
+                                </tr>
+                                <tr>
+                                    <td style="border:2px solid #000;text-align:center;width:110px;height:65px;vertical-align:middle;cursor:pointer;" id="signArea0" onclick="openSignModal(0)"></td>
+                                    <td style="border:2px solid #000;text-align:center;width:110px;height:65px;vertical-align:middle;cursor:pointer;" id="signArea1" onclick="openSignModal(1)"></td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- 좌우 2분할 테이블: 호기별 포장기/멀티포장기 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <!-- 왼쪽: 1~7호기 -->
+                    <table style="width:290px;border-collapse:collapse;table-layout:fixed;margin:0 auto;" id="reportTableLeft">
+                        <colgroup><col style="width:40px;"><col style="width:125px;"><col style="width:125px;"></colgroup>
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="border:2px solid #000;padding:6px;font-size:13px;width:45px;text-align:center;vertical-align:middle;">호<br>기</th>
+                                <th colspan="2" style="border:2px solid #000;padding:6px;font-size:14px;text-align:center;font-weight:bold;">설 비</th>
+                            </tr>
+                            <tr>
+                                <th style="border:2px solid #000;padding:5px;font-size:13px;text-align:center;font-weight:bold;">포장기</th>
+                                <th style="border:2px solid #000;padding:5px;font-size:13px;text-align:center;font-weight:bold;">멀티 포장기</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportLeft"></tbody>
+                    </table>
+                    <!-- 오른쪽: 8~12,11.,12.호기 -->
+                    <table style="width:290px;border-collapse:collapse;table-layout:fixed;margin:0 auto;" id="reportTableRight">
+                        <colgroup><col style="width:40px;"><col style="width:125px;"><col style="width:125px;"></colgroup>
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="border:2px solid #000;padding:6px;font-size:13px;width:45px;text-align:center;vertical-align:middle;">호<br>기</th>
+                                <th colspan="2" style="border:2px solid #000;padding:6px;font-size:14px;text-align:center;font-weight:bold;">설 비</th>
+                            </tr>
+                            <tr>
+                                <th style="border:2px solid #000;padding:5px;font-size:13px;text-align:center;font-weight:bold;">포장기</th>
+                                <th style="border:2px solid #000;padding:5px;font-size:13px;text-align:center;font-weight:bold;">멀티 포장기</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportRight"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 하단 버튼 (인쇄 시 숨김) -->
+            <div class="modal-actions" style="padding:10px 20px 15px; background:#1e2035; flex-shrink:0;" id="reportActions">
+                <button class="btn-cancel" onclick="closeModal('reportModal')">닫기</button>
+                <button class="btn-confirm" onclick="printReportPage()">인쇄</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 서명 모달 ===== -->
+    <div class="modal-overlay" id="signModal">
+        <div class="modal" style="min-width:600px;">
+            <button class="modal-close" onclick="closeModal('signModal')">&times;</button>
+            <h2>서명해 주세요</h2>
+            <canvas id="signCanvas" width="560" height="300" style="background:white;border-radius:12px;cursor:crosshair;touch-action:none;display:block;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,0.3);"></canvas>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="clearSign()">지우기</button>
+                <button class="btn-confirm" onclick="saveSign()">서명 완료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 이미지 미리보기 ===== -->
+    <div class="preview-modal" id="previewModal" onclick="this.classList.remove('active')">
+        <div class="preview-label" id="previewLabel"></div>
+        <div class="preview-date" id="previewDate"></div>
+        <img id="previewImg" src="">
+        <div class="preview-hint">화면을 터치하면 닫힙니다</div>
+    </div>
+
+    <!-- ===== NG 경고 ===== -->
+    <div class="ng-overlay" id="ngOverlay" onclick="this.classList.remove('active')">
+        <div class="ng-text">
+            일부인<br>또는<br>화면 상태를<br>확인해주세요
+        </div>
+    </div>
+
+    <!-- ===== 조 불일치 경고 ===== -->
+    <div class="jo-warn-overlay" id="joWarnOverlay" onclick="this.classList.remove('active')">
+        <div class="jo-warn-text"></div>
+    </div>
+
+    <script>
+    // ─── 전역 변수 ───
+    let keypadDigits = [];
+    let tempJoYa = '';
+    let tempAB = '';
+    let currentFolder = '';
+    let reportFolder = '';
+    let signIndex = 0;
+    let pendingVerifyData = null;
+
+    // ─── 글자 크기 조절 ───
+    let currentFontScale = 100;
+    function applyFontScale(scale) {
+        currentFontScale = scale;
+        document.documentElement.style.fontSize = (scale / 100 * 16) + 'px';
+        document.getElementById('fontScaleDisplay').textContent = scale + '%';
+    }
+    function loadFontScale() {
+        fetch('/api/config').then(r => r.json()).then(cfg => {
+            applyFontScale(cfg.font_scale || 100);
+        });
+    }
+    function changeFontScale(delta) {
+        let newScale = Math.min(150, Math.max(80, currentFontScale + delta));
+        applyFontScale(newScale);
+        // 서버에 저장
+        fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({font_scale: newScale})
+        });
+    }
+
+    function toggleCamera() {
+        const btn = document.getElementById('cameraToggle');
+        btn.style.pointerEvents = 'none';
+        fetch('/api/camera_toggle', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                btn.classList.toggle('on', data.camera_ready);
+                updateCamView(data.camera_ready);
+            })
+            .catch(() => {})
+            .finally(() => { btn.style.pointerEvents = ''; });
+    }
+
+    function updateCamView(isOn) {
+        cameraOn = isOn;
+        const img = document.getElementById('cameraImg');
+        const overlay = document.getElementById('camOffOverlay');
+        if (isOn) {
+            overlay.style.display = 'none';
+            // 모달이 열려 있으면 닫힐 때 재개 (지금은 정지 유지)
+            if (!document.querySelector('.modal-overlay.active')) img.src = '/video_feed';
+        } else {
+            img.src = '';
+            overlay.style.display = 'flex';
+        }
+    }
+
+    // ─── 초기화 ───
+    window.onload = function() {
+        loadFontScale();
+        refreshState();
+        setInterval(refreshState, 3000);
+    };
+
+    function refreshState() {
+        fetch('/api/state').then(r => r.json()).then(data => {
+            // 헤더 업데이트
+            if (data.ex_date) {
+                document.getElementById('headerDate').textContent = data.ex_date;
+                document.getElementById('dateDisplay').textContent = data.ex_date;
+            }
+            if (data.jo_ya && data.a_b) {
+                document.getElementById('headerShift').textContent = data.jo_ya + ' / ' + data.a_b;
+                document.getElementById('shiftJoYa').textContent = data.jo_ya;
+                document.getElementById('shiftAB').textContent = data.a_b;
+            }
+            document.getElementById('cameraToggle').classList.toggle('on', data.camera_ready);
+            updateCamView(data.camera_ready);
+
+            // 포장기 버튼
+            document.getElementById('machineBtn0').classList.toggle('active', data.machine === 0);
+            document.getElementById('machineBtn1').classList.toggle('active', data.machine === 1);
+
+            // 스캔 버튼 활성화
+            document.getElementById('scanBtn').disabled = !data.folder_name;
+            currentFolder = data.folder_name;
+
+            // 호기 목록 렌더링
+            renderMachineList(data.date_list, data.b_c_list, data.ok_list, data.machine);
+
+            // 카운트
+            document.getElementById('okCount').textContent = data.ok_count;
+            document.getElementById('ngCount').textContent = data.ng_count;
+        });
+    }
+
+    let currentMachine = 0;
+    let cameraOn = false;   // 카메라 스트리밍 상태 (모달 중 영상 정지/재개에 사용)
+
+    function renderMachineList(dateList, colorList, okList, machine) {
+        currentMachine = machine;
+        const list = document.getElementById('machineList');
+        let html = '';
+        const labels = ['1호기','2호기','3호기','4호기','5호기','6호기','7호기',
+                        '8호기','9호기','10호기','11호기','12호기','11.호기','12.호기'];
+        // 표시 순서: 1~11, 13(11.), 12, 14(12.)
+        const order = [0,1,2,3,4,5,6,7,8,9,10,12,11,13];
+        for (let i = 0; i < 14; i++) {
+            const idx = order[i];
+            const date = dateList[idx] || '';
+            const color = colorList[idx] || 'gray';
+            const num = idx + 1;
+            const hasImage = (okList[idx] === 1 || okList[idx] === 2);
+            // 멀티포장기에서 비활성 호기 처리
+            if (machine === 1 && (idx === 8 || idx === 12 || idx === 13)) {
+                if (date === '') {
+                    html += `<div class="machine-item" style="opacity:0.3">
+                        <span class="num">${labels[idx]}</span>
+                        <span class="date gray">없음</span>
+                        <span class="no-thumb"></span>
+                    </div>`;
+                    continue;
+                }
+            }
+            const thumbHtml = hasImage && currentFolder
+                ? `<img class="thumb" src="/api/history_image/${currentFolder.replace('date/','')}/${machine}_${num}.png?t=${Date.now()}" onclick="event.stopPropagation();showPreview('${labels[idx]}','${date}','${color}',${machine},${num})">`
+                : `<span class="no-thumb"></span>`;
+            html += `<div class="machine-item" onclick="scanSingle(${num})">
+                <span class="num">${labels[idx]}</span>
+                <span class="date ${color}">${date || '0000-00-00'}</span>
+                ${thumbHtml}
+            </div>`;
+        }
+        list.innerHTML = html;
+    }
+
+    function showPreview(label, date, color, machine, num) {
+        if (!currentFolder) return;
+        const folder = currentFolder.replace('date/', '');
+        document.getElementById('previewLabel').textContent = label;
+        const colorMap = {green: '#4ade80', red: '#f87171'};
+        document.getElementById('previewDate').style.color = colorMap[color] || '#fff';
+        document.getElementById('previewDate').textContent = date;
+        document.getElementById('previewImg').src = `/api/history_image/${folder}/${machine}_${num}.png?t=${Date.now()}`;
+        document.getElementById('previewModal').classList.add('active');
+    }
+
+    // ─── 날짜 입력 ───
+    function openDateModal() {
+        keypadDigits = [];
+        updateKeypadDisplay();
+        openModal('dateModal');
+    }
+
+    function keypadInput(n) {
+        if (keypadDigits.length >= 8) return;
+        keypadDigits.push(n);
+        updateKeypadDisplay();
+    }
+
+    function keypadDelete() {
+        keypadDigits.pop();
+        updateKeypadDisplay();
+    }
+
+    function updateKeypadDisplay() {
+        const d = keypadDigits;
+        let text = '';
+        if (d.length === 0) { text = 'YYYY / MM / DD'; }
+        else if (d.length <= 4) { text = d.join('') + '년'; }
+        else if (d.length <= 6) { text = d.slice(0,4).join('') + '년 ' + d.slice(4).join('') + '월'; }
+        else { text = d.slice(0,4).join('') + '년 ' + d.slice(4,6).join('') + '월 ' + d.slice(6).join('') + '일 까지'; }
+        document.getElementById('keypadDisplay').textContent = text;
+    }
+
+    function keypadConfirm() {
+        if (keypadDigits.length !== 8) return;
+        const year = parseInt(keypadDigits.slice(0,4).join(''));
+        const month = parseInt(keypadDigits.slice(4,6).join(''));
+        const day = parseInt(keypadDigits.slice(6,8).join(''));
+
+        // 날짜 유효성 검사
+        if (month < 1 || month > 12) {
+            document.getElementById('keypadDisplay').textContent = '월은 01~12만 가능합니다';
+            document.getElementById('keypadDisplay').style.color = '#f87171';
+            setTimeout(() => { keypadDigits = []; document.getElementById('keypadDisplay').style.color = '#fbbf24'; updateKeypadDisplay(); }, 2000);
+            return;
+        }
+        const maxDay = new Date(year, month, 0).getDate();
+        if (day < 1 || day > maxDay) {
+            document.getElementById('keypadDisplay').textContent = month + '월은 1~' + maxDay + '일만 가능합니다';
+            document.getElementById('keypadDisplay').style.color = '#f87171';
+            setTimeout(() => { keypadDigits = []; document.getElementById('keypadDisplay').style.color = '#fbbf24'; updateKeypadDisplay(); }, 2000);
+            return;
+        }
+
+        const yearStr = keypadDigits.slice(0,4).join('');
+        const monthStr = keypadDigits.slice(4,6).join('');
+        const dayStr = keypadDigits.slice(6,8).join('');
+
+        fetch('/api/set_date', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({year: yearStr, month: monthStr, day: dayStr})
+        }).then(r => r.json()).then(data => {
+            closeModal('dateModal');
+            // 조/야 선택 모달 열기
+            tempJoYa = '';
+            tempAB = '';
+            document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('selected'));
+            openModal('shiftModal');
+            refreshState();
+        });
+    }
+
+    // ─── 조/야 선택 ───
+    function selectShiftType(type) {
+        tempJoYa = type;
+        document.getElementById('btnJo').classList.toggle('selected', type === '조간');
+        document.getElementById('btnYa').classList.toggle('selected', type === '야간');
+    }
+
+    function selectShiftGroup(group) {
+        tempAB = group;
+        document.getElementById('btnA').classList.toggle('selected', group === 'A조');
+        document.getElementById('btnB').classList.toggle('selected', group === 'B조');
+    }
+
+    function confirmShift() {
+        if (!tempJoYa || !tempAB) return;
+        fetch('/api/set_shift', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({jo_ya: tempJoYa, a_b: tempAB})
+        }).then(r => r.json()).then(data => {
+            closeModal('shiftModal');
+            refreshState();
+        });
+    }
+
+    // ─── 포장기 전환 ───
+    function setMachine(m) {
+        fetch('/api/set_machine', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({machine: m})
+        }).then(r => r.json()).then(data => {
+            refreshState();
+        });
+    }
+
+    // ─── 스캔 ───
+    function scanAll() {
+        if (!currentFolder) return;
+        document.getElementById('scanBtn').disabled = true;
+        document.getElementById('scanBtn').textContent = '인식 중...';
+
+        fetch('/api/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({num: 100, point: 0})
+        }).then(r => r.json()).then(data => {
+            document.getElementById('scanBtn').disabled = false;
+            document.getElementById('scanBtn').textContent = '하단에 일부인이 보이도록 올려놓은 후 여기를 터치하세요';
+
+            if (!data.success) {
+                showNG(data.error || '인식 실패');
+                return;
+            }
+            if (data.need_point_select) {
+                // 11/12호기 구분 필요
+                pendingVerifyData = data;
+                const fNum = parseInt(data.factory);
+                document.getElementById('pointBtn0').textContent = fNum + '호기';
+                document.getElementById('pointBtn1').textContent = fNum + '호기 .';
+                openModal('pointModal');
+                return;
+            }
+            if (data.result === 'NG') {
+                showNG(ngDetail(data));
+            } else if (data.jo_mismatch) {
+                showJoWarn(data);
+            }
+            refreshState();
+        }).catch(err => {
+            document.getElementById('scanBtn').disabled = false;
+            document.getElementById('scanBtn').textContent = '하단에 일부인이 보이도록 올려놓은 후 여기를 터치하세요';
+            showNG('통신 오류');
+        });
+    }
+
+    function scanSingle(num) {
+        if (!currentFolder) return;
+        fetch('/api/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({num: num, point: 0})
+        }).then(r => r.json()).then(data => {
+            if (!data.success) {
+                showNG(data.error || '인식 실패');
+                return;
+            }
+            if (data.result === 'NG') showNG(ngDetail(data));
+            else if (data.jo_mismatch) showJoWarn(data);
+            refreshState();
+        });
+    }
+
+    function confirmPoint(point) {
+        closeModal('pointModal');
+        // 재검증 with point
+        fetch('/api/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({num: 100, point: point})
+        }).then(r => r.json()).then(data => {
+            if (data.result === 'NG') showNG(ngDetail(data));
+            else if (data.jo_mismatch) showJoWarn(data);
+            refreshState();
+        });
+    }
+
+    function showNG(msg) {
+        const overlay = document.getElementById('ngOverlay');
+        if (msg) {
+            overlay.querySelector('.ng-text').innerHTML = msg;
+        } else {
+            overlay.querySelector('.ng-text').innerHTML = '일부인<br>또는<br>화면 상태를<br>확인해주세요';
+        }
+        overlay.classList.add('active');
+    }
+
+    // NG 상세: 인식한 글자 + 무엇이 틀렸는지
+    function ngDetail(data) {
+        const reason = data.reason || '확인이 필요합니다';
+        let h = '<div style="font-size:3.2rem;font-weight:800;margin-bottom:10px;">NG</div>';
+        h += `<div style="font-size:1.7rem;margin-bottom:22px;">${reason}</div>`;
+        h += '<div style="font-size:1.5rem;line-height:1.7;background:rgba(0,0,0,0.18);padding:16px 28px;border-radius:14px;display:inline-block;">';
+        h += `인식한 날짜 : <b>${data.ocr_date || '인식실패'}</b><br>`;
+        h += `설정 소비기한 : <b>${data.expected_date || '-'}</b>`;
+        if (data.factory) h += `<br>인식 호기 : ${data.factory}호기`;
+        if (data.ocr_jo)  h += `&nbsp;&nbsp;조 : ${data.ocr_jo}`;
+        h += '</div>';
+        h += '<div style="font-size:1.1rem;margin-top:20px;opacity:0.85;">화면을 터치하면 닫힙니다</div>';
+        return h;
+    }
+
+    // 조 불일치 경고 (노랑) — 기록은 선택한 조로 됨, 확인만 요청
+    function showJoWarn(data) {
+        const o = document.getElementById('joWarnOverlay');
+        let h = '<div style="font-size:2.8rem;font-weight:800;margin-bottom:14px;">조 확인 필요</div>';
+        h += '<div style="font-size:1.6rem;line-height:1.8;background:rgba(0,0,0,0.16);padding:16px 30px;border-radius:14px;display:inline-block;">';
+        h += `인식한 조 : <b>${data.ocr_jo || '-'}</b><br>선택한 조 : <b>${data.selected_jo || '-'}</b>`;
+        h += '</div>';
+        h += '<div style="font-size:1.2rem;margin-top:20px;">선택한 조(<b>' + (data.selected_jo || '-') + '</b>)로 기록되었습니다.<br>조가 맞는지 확인하세요. (화면 터치 시 닫힘)</div>';
+        o.querySelector('.jo-warn-text').innerHTML = h;
+        o.classList.add('active');
+    }
+
+    // ─── 새 일지 ───
+    function openNewSession() {
+        if (currentFolder && !confirm('현재 일지를 초기화하시겠습니까?')) return;
+        fetch('/api/new_session', {method:'POST'}).then(r => r.json()).then(() => {
+            refreshState();
+            openDateModal();
+        });
+    }
+
+    // ─── 일지 내역 ───
+    let allHistoryData = [];
+    let filteredHistoryData = [];
+    let historyPage = 1;
+    const HISTORY_PER_PAGE = 10;
+
+    function openHistory() {
+        document.getElementById('historyDatePicker').value = '';
+        fetch('/api/history').then(r => r.json()).then(data => {
+            allHistoryData = data;
+            filteredHistoryData = data;
+            historyPage = 1;
+            renderHistoryPage();
+            openModal('historyModal');
+        });
+    }
+
+    function filterHistoryByDate() {
+        const selected = document.getElementById('historyDatePicker').value;
+        if (!selected) {
+            filteredHistoryData = allHistoryData;
+        } else {
+            filteredHistoryData = allHistoryData.filter(item => item.date === selected);
+        }
+        historyPage = 1;
+        renderHistoryPage();
+    }
+
+    function renderHistoryPage() {
+        const totalPages = Math.max(1, Math.ceil(filteredHistoryData.length / HISTORY_PER_PAGE));
+        if (historyPage > totalPages) historyPage = totalPages;
+        const start = (historyPage - 1) * HISTORY_PER_PAGE;
+        const pageData = filteredHistoryData.slice(start, start + HISTORY_PER_PAGE);
+
+        // 테이블 렌더링
+        const tbody = document.getElementById('historyBody');
+        let html = '';
+        pageData.forEach(item => {
+            html += `<tr>
+                <td>${item.date}</td>
+                <td>${item.jo_ya}</td>
+                <td>${item.a_b}</td>
+                <td style="color:${item.sign_status === 'O' ? '#4ade80' : '#f87171'}">${item.sign_status}</td>
+                <td><button class="btn-view" onclick="viewReport('${item.folder}')">보기</button></td>
+                <td><button class="btn-delete" onclick="openDeletePass('${item.folder}')">삭제</button></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html || '<tr><td colspan="6" style="color:#52525b;">내역이 없습니다</td></tr>';
+
+        // 페이지네이션 렌더링
+        const paging = document.getElementById('historyPaging');
+        if (totalPages <= 1) {
+            paging.innerHTML = '';
+            return;
+        }
+        // 현재 페이지가 속한 10단위 그룹 계산 (1~10, 11~20, ...)
+        const groupStart = Math.floor((historyPage - 1) / 10) * 10 + 1;
+        const groupEnd = Math.min(groupStart + 9, totalPages);
+
+        let ph = '';
+        // << 이전 그룹
+        if (groupStart > 1) {
+            ph += `<button class="page-btn" onclick="goHistoryPage(${groupStart - 1})">&laquo;</button>`;
+        }
+        // 페이지 번호
+        for (let p = groupStart; p <= groupEnd; p++) {
+            ph += `<button class="page-btn ${p === historyPage ? 'active' : ''}" onclick="goHistoryPage(${p})">${p}</button>`;
+        }
+        // >> 다음 그룹
+        if (groupEnd < totalPages) {
+            ph += `<button class="page-btn" onclick="goHistoryPage(${groupEnd + 1})">&raquo;</button>`;
+        }
+        paging.innerHTML = ph;
+    }
+
+    function goHistoryPage(p) {
+        const totalPages = Math.max(1, Math.ceil(filteredHistoryData.length / HISTORY_PER_PAGE));
+        if (p < 1 || p > totalPages) return;
+        historyPage = p;
+        renderHistoryPage();
+    }
+
+    // ─── 삭제 비밀번호 ───
+    let deletePassDigits = [];
+    let deleteTargetFolder = '';
+
+    function openDeletePass(folder) {
+        deleteTargetFolder = folder;
+        deletePassDigits = [];
+        updateDeletePassDisplay();
+        openModal('deletePassModal');
+    }
+
+    function deletePassInput(n) {
+        if (deletePassDigits.length >= 4) return;
+        deletePassDigits.push(n);
+        updateDeletePassDisplay();
+    }
+
+    function deletePassClear() {
+        deletePassDigits = [];
+        updateDeletePassDisplay();
+    }
+
+    function updateDeletePassDisplay() {
+        const display = document.getElementById('deletePassDisplay');
+        let text = '';
+        for (let i = 0; i < 4; i++) {
+            text += i < deletePassDigits.length ? '●' : '_';
+        }
+        display.textContent = text;
+        display.style.color = '#e4e4e7';
+    }
+
+    function deletePassConfirm() {
+        if (deletePassDigits.length !== 4) return;
+        const password = deletePassDigits.join('');
+
+        fetch('/api/delete_history', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({folder: deleteTargetFolder, password: password})
+        }).then(r => r.json()).then(result => {
+            if (result.success) {
+                closeModal('deletePassModal');
+                // 목록 새로고침
+                fetch('/api/history').then(r => r.json()).then(data => {
+                    allHistoryData = data;
+                    filterHistoryByDate();
+                });
+            } else {
+                document.getElementById('deletePassDisplay').textContent = result.error || '오류';
+                document.getElementById('deletePassDisplay').style.color = '#f87171';
+                setTimeout(() => { deletePassDigits = []; updateDeletePassDisplay(); }, 1500);
+            }
+        });
+    }
+
+    // ─── 점검 일지 보기 ───
+    function openReport() {
+        if (!currentFolder) { alert('세션이 없습니다. 날짜를 먼저 입력해주세요.'); return; }
+        viewReport(currentFolder.replace('date/', ''));
+    }
+
+    function viewReport(folder) {
+        reportFolder = folder;
+        fetch('/api/history/' + folder).then(r => r.json()).then(data => {
+            if (data.error) { alert(data.error); return; }
+
+            document.getElementById('reportInfo').textContent =
+                data.ex_date + ' / ' + data.jo_ya + ' / ' + data.a_b;
+            document.getElementById('reportDate2').textContent =
+                data.ex_date_year + '-' + data.ex_date_month + '-' + data.ex_date_day;
+
+            const shortLabels = ['1','2','3','4','5','6','7','8','9','10','11','12','11.','12.'];
+            // 왼쪽: 1~7호기 (idx 0~6), 오른쪽: 8~10,11,11.,12,12. (idx 7~13 순서대로)
+            const leftOrder = [0,1,2,3,4,5,6];
+            const rightOrder = [7,8,9,10,12,11,13];
+
+            function buildCell(m, idx) {
+                const ok = data.ok_list[m][idx];
+                const dateVal = data.date_list[m][idx] || '';
+                const color = data.b_c_list[m][idx] || 'gray';
+                const imgKey = m + '_' + (idx + 1);
+                const hasImg = data.images && data.images[imgKey];
+                const isChecked = (ok === 1 || ok === 2);
+                const displayDate = isChecked ? dateVal : '';
+                const resultMark = ok === 1 ? ' OK' : ok === 2 ? ' NG' : '';
+                const resultColor = ok === 1 ? '#0a8a0a' : ok === 2 ? '#d00' : '#999';
+
+                let content = '';
+                if (hasImg) {
+                    content += `<img src="/api/history_image/${folder}/${imgKey}.png?t=${Date.now()}" style="width:100%;max-height:60px;object-fit:contain;display:block;margin:0 auto 2px;">`;
+                }
+                if (displayDate) {
+                    content += `<div style="font-size:11px;font-weight:bold;color:${resultColor};line-height:1.2;">${displayDate}${resultMark}</div>`;
+                }
+                return content;
+            }
+
+            // 사선 처리용 (해당 호기에 해당 설비가 없는 경우)
+            function diagonalCell() {
+                return `<div style="position:relative;width:100%;height:100%;min-height:62px;">
+                    <svg style="position:absolute;top:0;left:0;width:100%;height:100%;" preserveAspectRatio="none" viewBox="0 0 100 100">
+                        <line x1="0" y1="100" x2="100" y2="0" stroke="#000" stroke-width="1.5"/>
+                    </svg>
+                </div>`;
+            }
+
+            function buildRows(orderArr, targetId) {
+                let html = '';
+                for (let i = 0; i < orderArr.length; i++) {
+                    const idx = orderArr[i];
+                    // 멀티포장기에서 비활성인 호기: 9호기(idx8), 11.호기(idx12), 12.호기(idx13)
+                    const multiNA = (idx === 8 || idx === 12 || idx === 13);
+                    const cellStyle = 'border:2px solid #000;padding:3px;font-size:13px;text-align:center;vertical-align:middle;height:62px;';
+
+                    html += `<tr>
+                        <td style="${cellStyle}font-weight:bold;width:45px;">${shortLabels[idx]}</td>
+                        <td style="${cellStyle}">${buildCell(0, idx)}</td>
+                        <td style="${cellStyle}position:relative;padding:0;">${multiNA ? diagonalCell() : buildCell(1, idx)}</td>
+                    </tr>`;
+                }
+                document.getElementById(targetId).innerHTML = html;
+            }
+
+            buildRows(leftOrder, 'reportLeft');
+            buildRows(rightOrder, 'reportRight');
+
+            // 서명 표시 (클릭 시 재서명 가능 - td에 onclick이 걸려있음)
+            for (let i = 0; i < 2; i++) {
+                const area = document.getElementById('signArea' + i);
+                if (data.sign_list[i] === 1) {
+                    area.innerHTML = `<img src="/api/sign_image/${folder}/${i}?t=${Date.now()}" style="width:90px;height:50px;object-fit:contain;display:block;margin:0 auto;">`;
+                } else {
+                    area.innerHTML = `<span style="font-size:12px;color:#6366f1;font-weight:600;">서명</span>`;
+                }
+            }
+
+            closeModal('historyModal');
+            openModal('reportModal');
+        });
+    }
+
+    function printReportPage() {
+        // 브라우저 인쇄 (양식 그대로 출력)
+        const printArea = document.getElementById('reportPrintArea').innerHTML;
+        const win = window.open('', '_blank');
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <title>일부인 점검 일지</title>
+            <style>
+                body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; }
+                table { border-collapse: collapse; }
+                img { max-height: 50px; }
+                svg { display: block; }
+                @media print { body { padding: 0; } }
+            </style></head><body>${printArea}</body></html>`);
+        win.document.close();
+        win.onload = function() { win.print(); };
+    }
+
+    // ─── 서명 ───
+    let signCtx = null;
+    let signing = false;
+    let lastX, lastY;
+
+    function openSignModal(idx) {
+        signIndex = idx;
+        const canvas = document.getElementById('signCanvas');
+        signCtx = canvas.getContext('2d');
+        signCtx.fillStyle = 'white';
+        signCtx.fillRect(0, 0, canvas.width, canvas.height);
+        signCtx.strokeStyle = 'black';
+        signCtx.lineWidth = 4;
+        signCtx.lineCap = 'round';
+
+        // 이벤트
+        canvas.onpointerdown = function(e) {
+            signing = true;
+            lastX = e.offsetX;
+            lastY = e.offsetY;
+        };
+        canvas.onpointermove = function(e) {
+            if (!signing) return;
+            signCtx.beginPath();
+            signCtx.moveTo(lastX, lastY);
+            signCtx.lineTo(e.offsetX, e.offsetY);
+            signCtx.stroke();
+            lastX = e.offsetX;
+            lastY = e.offsetY;
+        };
+        canvas.onpointerup = function() { signing = false; };
+        canvas.onpointerleave = function() { signing = false; };
+
+        openModal('signModal');
+    }
+
+    function clearSign() {
+        const canvas = document.getElementById('signCanvas');
+        signCtx.fillStyle = 'white';
+        signCtx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function saveSign() {
+        const canvas = document.getElementById('signCanvas');
+        const dataURL = canvas.toDataURL('image/png');
+        const folder = reportFolder ? 'date/' + reportFolder : currentFolder;
+
+        fetch('/api/sign', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                index: signIndex,
+                sign_data: dataURL,
+                folder: folder
+            })
+        }).then(r => r.json()).then(data => {
+            closeModal('signModal');
+            if (reportFolder) viewReport(reportFolder);
+            refreshState();
+        });
+    }
+
+    function printReport() {
+        const folder = reportFolder ? 'date/' + reportFolder : currentFolder;
+        fetch('/api/print', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({folder: folder})
+        }).then(r => r.json()).then(data => {
+            alert(data.success ? '인쇄 요청 완료' : '인쇄 실패: ' + data.error);
+        });
+    }
+
+    // ─── 종료 ───
+    function confirmShutdown() {
+        if (confirm('시스템을 종료하시겠습니까?')) {
+            fetch('/api/shutdown', {method:'POST'});
+            document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-size:1.5rem;color:#71717a;">시스템이 종료되었습니다.</div>';
+            // 브라우저 탭 닫기 (1초 후)
+            setTimeout(function(){ window.open('','_self',''); window.close(); }, 1000);
+        }
+    }
+
+    // ─── 모달 유틸 ───
+    function openModal(id) {
+        document.getElementById(id).classList.add('active');
+        // 모달 동안 영상 스트림 정지 → 브라우저 메인스레드 확보(입력 반응성↑)
+        const img = document.getElementById('cameraImg');
+        if (img) img.src = '';
+    }
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+        // 다른 모달이 없고 카메라가 켜져 있으면 영상 재개
+        if (cameraOn && !document.querySelector('.modal-overlay.active')) {
+            const img = document.getElementById('cameraImg');
+            if (img) img.src = '/video_feed';
+        }
+    }
+    </script>
+</body>
+</html>

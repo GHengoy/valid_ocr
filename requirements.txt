@@ -1,0 +1,11 @@
+flask
+opencv-python
+numpy
+pillow
+pytesseract
+pypylon
+# ── TensorRT OCR(PaddleOCR PP-OCRv5) 사용 시 추가 ──
+# Jetson 에서는 pip 대신 apt 로 설치 권장:
+#   tensorrt : sudo apt install python3-libnvinfer  (JetPack 동봉, pip 설치 금지)
+#   pycuda   : python3 -m pip install --user pycuda  (CUDA 툴킷 /usr/local/cuda 필요)
+pycuda
