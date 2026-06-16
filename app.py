@@ -310,11 +310,15 @@ def img_ocr(maked_img, verbose=True):
     engine_used = "tesseract"
     if OCR_ENGINE is not None and OCR_ENGINE.available:
         try:
-            # 기울기 보정 + 2줄(날짜/호기) 자동 검출 → 각 줄 인식
-            # (스탬프 위치·기울기가 매번 달라도 동적으로 찾아 안정적)
-            results = OCR_ENGINE.ocr_stamp(maked_img)
+            if OCR_ENGINE.det is not None:
+                # det(텍스트 검출) + rec: 위치·기울기·배경(바코드/영양정보)에 강건
+                results = OCR_ENGINE.ocr(maked_img)
+                engine_used = "TRT/det"
+            else:
+                # det 엔진 없을 때: 기울기 보정 + 줄 자동검출 휴리스틱
+                results = OCR_ENGINE.ocr_stamp(maked_img)
+                engine_used = "TRT"
             raw_log = results
-            engine_used = "TRT"
         except Exception as e:
             print("TRT OCR 오류 → tesseract 폴백:", str(e))
             results = []

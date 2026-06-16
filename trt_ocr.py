@@ -378,7 +378,10 @@ class TRTPaddleOCR:
     def _det_boxes(self, img):
         x, (sx, sy) = self._det_preprocess(img)
         prob = self.det.infer(x)[0]          # [1,1,H,W]
-        prob = np.squeeze(prob)
+        prob = np.squeeze(prob).astype(np.float32)
+        # 출력이 확률(0~1)이 아니라 로짓이면 sigmoid 적용
+        if prob.min() < 0.0 or prob.max() > 1.0:
+            prob = 1.0 / (1.0 + np.exp(-prob))
         seg = (prob > self.det_thresh).astype(np.uint8)
         contours, _ = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         boxes = []
