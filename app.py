@@ -980,24 +980,35 @@ def open_browser(url):
     --start-fullscreen: 주소창/탭 없이 화면을 꽉 채워 시작(F11 로 해제 가능).
     완전 잠금형(키오스크)을 원하면 --start-fullscreen 을 --kiosk 로 바꾸면 된다."""
     import subprocess
+    # GTK 의 atk-bridge 안내 메시지 억제
+    env = dict(os.environ, NO_AT_BRIDGE="1")
     for binary in ("chromium-browser", "chromium", "google-chrome-stable", "google-chrome"):
         path = shutil.which(binary)
         if not path:
             continue
         try:
-            subprocess.Popen([
-                path,
-                "--start-fullscreen",
-                "--noerrdialogs",
-                "--disable-infobars",
-                "--disable-session-crashed-bubble",
-                # Jetson + snap 크로미움은 HW GL(EGL/ANGLE) 초기화가 실패해
-                # 'failed to create drawable' 로 화면이 안 뜨는 경우가 있다.
-                # 이 UI 는 GPU 가속이 필요 없으므로 소프트웨어 렌더링으로 강제한다.
-                "--disable-gpu",
-                "--disable-gpu-compositing",
-                url,
-            ])
+            subprocess.Popen(
+                [
+                    path,
+                    "--start-fullscreen",
+                    "--noerrdialogs",
+                    "--disable-infobars",
+                    "--disable-session-crashed-bubble",
+                    # Jetson + snap 크로미움은 HW GL(EGL/ANGLE) 초기화가 실패해
+                    # 'failed to create drawable' 로 화면이 안 뜨는 경우가 있다.
+                    # 이 UI 는 GPU 가속이 필요 없으므로 소프트웨어 렌더링으로 강제한다.
+                    "--disable-gpu",
+                    "--disable-gpu-compositing",
+                    "--log-level=3",       # 크로미움 자체 로그(INFO/WARNING/ERROR) 억제
+                    "--disable-logging",
+                    url,
+                ],
+                env=env,
+                # 크로미움/snap 이 터미널에 쏟는 경고(EGL, matchpathcon, atk-bridge,
+                # DEPRECATED_ENDPOINT 등)를 화면에 띄우지 않도록 출력 폐기.
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             return
         except Exception as e:
             print("크로미움 실행 실패 → 기본 브라우저 폴백:", e)
