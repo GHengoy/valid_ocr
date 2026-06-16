@@ -18,8 +18,9 @@
 #    bash setup.sh --no-trt     # TRT 빌드 건너뜀
 # ============================================================
 set -e
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"   # scripts/
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"       # 프로젝트 루트
+cd "$ROOT_DIR"
 
 BUILD_TRT="ask"
 for a in "$@"; do
@@ -112,7 +113,7 @@ fi
 # ── 4. TensorRT OCR 엔진 빌드 ─────────────────────────────────
 echo ""
 echo "[4/6] TensorRT OCR 엔진..."
-if [ -s "$SCRIPT_DIR/onnx/korean_rec.trt" ]; then
+if [ -s "$ROOT_DIR/onnx/korean_rec.trt" ]; then
     echo "  -> rec 엔진 이미 있음 (onnx/korean_rec.trt) — 건너뜀"
 else
     if [ "$BUILD_TRT" = "ask" ]; then
@@ -122,7 +123,7 @@ else
         [[ "$ans" == "y" || "$ans" == "Y" ]] && BUILD_TRT="yes" || BUILD_TRT="no"
     fi
     if [ "$BUILD_TRT" = "yes" ]; then
-        bash "$SCRIPT_DIR/onnx/build_trt.sh"
+        bash "$ROOT_DIR/onnx/build_trt.sh"
     else
         echo "  -> 건너뜀. 나중에 빌드: bash onnx/build_trt.sh"
         echo "     (엔진이 없으면 OCR은 tesseract 로 폴백 동작)"
@@ -132,7 +133,7 @@ fi
 # ── 5. 데이터 폴더 ────────────────────────────────────────────
 echo ""
 echo "[5/6] 데이터 폴더 확인..."
-mkdir -p "$SCRIPT_DIR/date"
+mkdir -p "$ROOT_DIR/date"
 
 # ── 6. 바탕화면 아이콘 + 부팅 자동실행 ────────────────────────
 echo ""
@@ -149,7 +150,7 @@ Version=1.0
 Name=$2
 Comment=$3
 Exec=$4
-Path=$SCRIPT_DIR
+Path=$ROOT_DIR
 Icon=$5
 Terminal=$6
 Categories=Utility;
@@ -161,9 +162,9 @@ EOF
 DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
 mkdir -p "$DESKTOP_DIR"
 
-make_launcher "$DESKTOP_DIR/valid-ocr.desktop"      "일부인 검증 시스템" "소비기한 일부인 검사 프로그램 실행" "bash $SCRIPT_DIR/start.sh"          "$SCRIPT_DIR/icons/valid-ocr.svg"      "true"
-make_launcher "$DESKTOP_DIR/jetson-reboot.desktop"  "Jetson 재시작"      "Jetson 보드 재시작"              "bash $SCRIPT_DIR/jetson_reboot.sh"  "$SCRIPT_DIR/icons/jetson-reboot.svg"  "false"
-make_launcher "$DESKTOP_DIR/jetson-shutdown.desktop" "Jetson 종료"       "Jetson 보드 전원 끄기"            "bash $SCRIPT_DIR/jetson_shutdown.sh" "$SCRIPT_DIR/icons/jetson-shutdown.svg" "false"
+make_launcher "$DESKTOP_DIR/valid-ocr.desktop"      "일부인 검증 시스템" "소비기한 일부인 검사 프로그램 실행" "bash $SCRIPT_DIR/start.sh"          "$ROOT_DIR/assets/icons/valid-ocr.svg"      "true"
+make_launcher "$DESKTOP_DIR/jetson-reboot.desktop"  "Jetson 재시작"      "Jetson 보드 재시작"              "bash $SCRIPT_DIR/jetson_reboot.sh"  "$ROOT_DIR/assets/icons/jetson-reboot.svg"  "false"
+make_launcher "$DESKTOP_DIR/jetson-shutdown.desktop" "Jetson 종료"       "Jetson 보드 전원 끄기"            "bash $SCRIPT_DIR/jetson_shutdown.sh" "$ROOT_DIR/assets/icons/jetson-shutdown.svg" "false"
 echo "  -> 바탕화면 아이콘 3개 생성(색상): 🟢실행 / 🔵재시작 / 🔴종료"
 
 # 부팅 자동실행 (로그인 후 터미널 창에서 자동 시작 → 로그 표시)
@@ -173,7 +174,7 @@ cat > "$HOME/.config/autostart/valid-ocr.desktop" <<EOF
 Type=Application
 Name=일부인 검증 시스템
 Comment=Boot auto-start for valid_ocr
-Exec=gnome-terminal --title=일부인검증시스템 -- bash -c "cd $SCRIPT_DIR; bash start.sh; exec bash"
+Exec=gnome-terminal --title=일부인검증시스템 -- bash -c "bash $SCRIPT_DIR/start.sh; exec bash"
 Terminal=false
 X-GNOME-Autostart-enabled=true
 X-GNOME-Autostart-Delay=8

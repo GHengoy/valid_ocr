@@ -27,6 +27,7 @@ app = Flask(__name__)
 # ─── 설정 로드 ───
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")   # 폰트/카메라설정(.pfs)/아이콘
 
 def load_config():
     with open(CONFIG_PATH, "r") as f:
@@ -97,7 +98,7 @@ def load_camera():
         state.cam.Attach(tlFactory.CreateDevice(cam_info))
         state.cameras.Open()
         pylon.FeaturePersistence.Load(
-            os.path.join(BASE_DIR, cfg["camera_setting"]),
+            os.path.join(ASSETS_DIR, cfg["camera_setting"]),
             state.cam.GetNodeMap(), True
         )
         state.cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
@@ -844,11 +845,12 @@ def api_restart():
 
 @app.route('/api/pfs_files')
 def api_pfs_files():
-    """프로젝트 디렉토리 내 .pfs 파일 목록 반환"""
+    """assets/ 내 .pfs 파일 목록 반환"""
     pfs_files = []
-    for f in os.listdir(BASE_DIR):
-        if f.lower().endswith('.pfs'):
-            pfs_files.append(f)
+    if os.path.isdir(ASSETS_DIR):
+        for f in os.listdir(ASSETS_DIR):
+            if f.lower().endswith('.pfs'):
+                pfs_files.append(f)
     pfs_files.sort()
     return jsonify(pfs_files)
 
@@ -861,7 +863,8 @@ def api_upload_pfs():
     f = request.files['file']
     if not f.filename.lower().endswith('.pfs'):
         return jsonify({"success": False, "error": ".pfs 파일만 업로드 가능합니다."})
-    save_path = os.path.join(BASE_DIR, f.filename)
+    os.makedirs(ASSETS_DIR, exist_ok=True)
+    save_path = os.path.join(ASSETS_DIR, f.filename)
     f.save(save_path)
     return jsonify({"success": True, "filename": f.filename})
 

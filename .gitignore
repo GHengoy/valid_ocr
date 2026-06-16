@@ -13,7 +13,7 @@ ocr_models/
 onnx_export/
 
 # Fonts (별도 배치)
-malgun.ttf
+assets/malgun.ttf
 
 # Python
 __pycache__/

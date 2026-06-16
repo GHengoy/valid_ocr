@@ -21,9 +21,12 @@ import random
 import numpy as np
 import cv2
 
+# 프로젝트 루트(상위 폴더) 기준 + 모듈 import 경로
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE)
+
 from trt_ocr import TRTPaddleOCR, parse_stamp_text
 
-BASE = os.path.dirname(os.path.abspath(__file__))
 SAMPLE = int(sys.argv[1]) if len(sys.argv) > 1 else 80
 
 

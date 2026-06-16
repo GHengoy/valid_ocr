@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================================
 #  start.sh — 일부인 검증 시스템 실행
-#  사용: bash start.sh   또는   ./start.sh
+#  사용: bash scripts/start.sh   (또는 바탕화면 아이콘)
 # ============================================================
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"   # 프로젝트 루트 (scripts/ 의 상위)
+cd "$ROOT_DIR"
 
 # 기존 app.py 프로세스가 떠 있으면 종료
 EXISTING=$(pgrep -f "python3 .*app\.py" 2>/dev/null)
@@ -17,8 +17,8 @@ if [ -n "$EXISTING" ]; then
 fi
 
 # venv 가 있으면 사용, 없으면 시스템 python3
-if [ -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
-    source "$SCRIPT_DIR/.venv/bin/activate"
+if [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
+    source "$ROOT_DIR/.venv/bin/activate"
     PY="python"
 else
     PY="python3"

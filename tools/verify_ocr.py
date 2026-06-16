@@ -18,15 +18,18 @@ Ground truth (정답):
 사용: python3 verify_ocr.py
 """
 import os
+import sys
 import re
 import csv
 import glob
 import json
 import cv2
 
-from trt_ocr import TRTPaddleOCR, parse_stamp_text
+# 프로젝트 루트(상위 폴더)를 기준으로 동작하고, 거기서 모듈을 import 한다.
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE)
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+from trt_ocr import TRTPaddleOCR, parse_stamp_text
 
 
 def load_config():
